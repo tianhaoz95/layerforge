@@ -1,0 +1,17 @@
+node_modules
+dist
+.env.local
+.env.*.local
+*.tsbuildinfo
+
+# Sandbox temp files
+/tmp/lf-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+*.swp
