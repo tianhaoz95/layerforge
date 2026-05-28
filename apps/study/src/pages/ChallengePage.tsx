@@ -73,7 +73,7 @@ export function ChallengePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-950 text-gray-100">
+    <div className="flex h-screen flex-col bg-gray-950 text-gray-100 overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
