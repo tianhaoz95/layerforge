@@ -87,6 +87,8 @@ Read `apps/study/src/data/challenges.ts` in full. Note:
 Design decisions to make:
 
 **Scope**: one self-contained mathematical operation. If the research covers a large system, identify the single most instructive sub-operation and focus on that.
+- **Framework Standard**: Always use **PyTorch** (`torch.Tensor`) for all standard AI/ML content. Never use NumPy.
+- **Triton for Kernels**: Always use **Triton** (`triton` and `triton.language`) for all GPU/CPU-emulated kernel-related questions (e.g. Vector Add, Softmax, or LayerNorm kernels).
 
 **Difficulty**: assign based on the following rubric:
 - `beginner`: ≤ 2 algorithmic steps, all operations are standard linear algebra (matmul, add), no reshaping tricks required
@@ -97,7 +99,8 @@ Design decisions to make:
 
 **Test strategy** — plan 4–6 assertions that collectively verify:
 1. Return type (`isinstance(out, torch.Tensor)`) and shape
-2. Numerical correctness vs. an embedded reference implementation using `torch.allclose`
+2. Numerical correctness vs. an embedded reference implementation using `torch.allclose` (or native operation)
+   - *Built-in Verification Rule*: If PyTorch has an existing built-in function or class that performs the exact target operation (e.g., `torch.nn.functional.linear` or `torch.nn.functional.layer_norm`), **always include that built-in function as an additional correctness check** in the testing harness to verify parity.
 3. At least one edge/boundary case (e.g. zero input, identity weights, single token)
 4. At least one "wrong implementation detector" — change a key input and assert the output changes (catches implementations that ignore a parameter)
 5. Any invariant the operation must satisfy (e.g. attention weights sum to 1, output norm properties)
