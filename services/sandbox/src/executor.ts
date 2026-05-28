@@ -29,6 +29,7 @@ export async function executePython(code: string): Promise<ExecutionResult> {
     const { stdout, stderr } = await execFileAsync('python3', [file], {
       timeout: TIMEOUT_MS,
       cwd: runDir,
+      env: { ...process.env, TRITON_INTERPRET: '1' },
     });
 
     // execFileAsync only resolves on exit code 0
