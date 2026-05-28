@@ -102,7 +102,7 @@ export function ChallengePage() {
       {/* Body */}
       <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
         {/* Left pane: problem description */}
-        <div className="w-full border-b border-gray-800 bg-gray-900/40 lg:w-[38%] lg:border-b-0 lg:border-r lg:overflow-y-auto">
+        <div className="w-full border-b border-gray-800 bg-gray-900/40 lg:w-[38%] lg:border-b-0 lg:border-r lg:overflow-y-auto custom-scrollbar">
           <div className="p-6">
             <h1 className="mb-4 text-xl font-bold text-white">{challenge.title}</h1>
 
@@ -173,7 +173,7 @@ export function ChallengePage() {
 
           {/* Results + Hint */}
           {status !== 'idle' && (
-            <div className="border-t border-gray-800 bg-gray-950 p-5 space-y-4 overflow-y-auto max-h-72">
+            <div className="border-t border-gray-800 bg-gray-950 p-5 space-y-4 overflow-y-auto max-h-72 custom-scrollbar">
               <ResultPanel
                 status={status}
                 result={result}
