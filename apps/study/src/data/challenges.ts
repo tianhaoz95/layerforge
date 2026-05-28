@@ -988,4 +988,152 @@ if __name__ == "__main__":
     print(f"NoPE identity check error: {torch.max(torch.abs(out_nope - x)):.2e}  (should be ~0)")
 `,
   },
+  {
+    id: 'triton-vector-add',
+    title: 'Vector Addition Kernel (Triton)',
+    module: 'GPU Kernels',
+    difficulty: 'beginner',
+    language: 'python',
+    tags: ['triton', 'gpu', 'kernels', 'element-wise'],
+    description: `Implement a parallel vector addition kernel using OpenAI's Triton language.
+
+Triton is a language and compiler designed for writing highly efficient custom deep learning primitives. Instead of operating at the thread level (like CUDA), Triton operates at the block level, allowing you to load, compute, and store block-sized chunks of data in parallel.
+
+The kernel computes:
+  Z[i] = X[i] + Y[i]
+
+Where:
+  X  — input vector   shape: (N,)
+  Y  — input vector   shape: (N,)
+  Z  — output vector  shape: (N,)
+
+Tensors are laid out contiguously in memory. Since the total number of elements N may not be a perfect multiple of the block size, you must use a boundary safety mask to prevent out-of-bounds DRAM memory access.
+
+Data-flow and memory block mapping:
+  DRAM Memory:
+  [ x_ptr ] ──→ [ Block 0 ] [ Block 1 ] [ Block 2 (Partial) ]
+                 │
+                 ├──→ Program ID 0 (pid = 0)
+                 │    offsets = [0, 1, 2, ..., BLOCK_SIZE-1]
+                 │    mask    = offsets < n_elements
+                 │    tl.load ──→ tl.store (output_ptr)
+
+Steps:
+  1. Query the program instance ID: pid = tl.program_id(axis=0)
+  2. Compute memory start position of this block: block_start = pid * BLOCK_SIZE
+  3. Compute absolute element offsets: offsets = block_start + tl.arange(0, BLOCK_SIZE)
+  4. Build safety mask to prevent out-of-bounds memory accesses: mask = offsets < n_elements
+  5. Load vector blocks from DRAM: x = tl.load(x_ptr + offsets, mask)
+  6. Load vector blocks from DRAM: y = tl.load(y_ptr + offsets, mask)
+  7. Compute element-wise sum: output = x + y
+  8. Store result block back to DRAM: tl.store(output_ptr + offsets, output, mask)
+
+Requirements:
+  • Use only triton.language (tl) primitives.
+  • Correctly compute program IDs and memory offsets.
+  • Implement boundary safety masking.`,
+
+    staticHint: `Getting started with Triton requires shifting from thread-level thinking to block-level thinking.
+
+First, identify which block of elements this specific program instance is responsible for:
+  - You can query the program ID along axis 0 using: pid = tl.program_id(axis=0)
+  - The starting offset for this block's memory is: block_start = pid * BLOCK_SIZE
+
+Next, build the vector of target offsets using 'tl.arange' and add 'block_start':
+  offsets = block_start + tl.arange(0, BLOCK_SIZE)
+
+Don't forget the mask! If the total number of elements 'n_elements' is not divisible by 'BLOCK_SIZE', some threads in the final block will access memory out of bounds. The boundary safety mask is:
+  mask = offsets < n_elements
+
+Why do we add the starting pointer ('x_ptr') to the offsets when loading? Remember that 'x_ptr' is a pointer to the start of the array, so 'x_ptr + offsets' represents a block of memory addresses that we load directly from DRAM.`,
+
+    starterCode: `import torch
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def add_kernel(
+    x_ptr,
+    y_ptr,
+    output_ptr,
+    n_elements: int,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """
+    Triton vector addition kernel.
+    Computes output_ptr[i] = x_ptr[i] + y_ptr[i] in parallel blocks of BLOCK_SIZE.
+
+    Args:
+        x_ptr:      Pointer to first input vector in DRAM.
+        y_ptr:      Pointer to second input vector in DRAM.
+        output_ptr: Pointer to output vector in DRAM.
+        n_elements: Total number of elements in the vectors.
+        BLOCK_SIZE: Number of elements processed by each program instance.
+    """
+    # YOUR CODE HERE
+    pass
+
+
+# ── Launcher helper (do not modify) ──────────────────────────────────────────
+
+def vector_add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """Launcher helper that allocates output memory, defines grid, and executes kernel."""
+    output = torch.empty_like(x)
+    n_elements = x.numel()
+    BLOCK_SIZE = 512
+    # The grid is a 1D sequence of blocks
+    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE)
+    return output
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    # Test 1: Vector size perfectly divisible by BLOCK_SIZE (512 * 2 = 1024)
+    N1 = 1024
+    X1 = torch.randn(N1, dtype=torch.float32)
+    Y1 = torch.randn(N1, dtype=torch.float32)
+
+    out1 = vector_add(X1, Y1)
+    assert out1 is not None, "vector_add returned None — did you forget to return in your launcher or kernel?"
+    assert isinstance(out1, torch.Tensor), f"Expected torch.Tensor, got {type(out1)}"
+    assert out1.shape == (N1,), f"Shape wrong: expected ({N1},), got {out1.shape}"
+
+    expected1 = X1 + Y1
+    assert torch.allclose(out1, expected1, atol=1e-5), "Test 1 failed: values do not match native PyTorch addition"
+
+    # Test 2: Vector size NOT divisible by BLOCK_SIZE (edge masking test)
+    N2 = 983
+    X2 = torch.randn(N2, dtype=torch.float32)
+    Y2 = torch.randn(N2, dtype=torch.float32)
+
+    out2 = vector_add(X2, Y2)
+    assert out2.shape == (N2,), f"Shape wrong for unaligned vector: expected ({N2},), got {out2.shape}"
+
+    expected2 = X2 + Y2
+    assert torch.allclose(out2, expected2, atol=1e-5), "Test 2 failed: boundary masking is incorrect or missing"
+
+    # Test 3: Zero vector addition
+    X3 = torch.zeros(300, dtype=torch.float32)
+    Y3 = torch.zeros(300, dtype=torch.float32)
+    out3 = vector_add(X3, Y3)
+    assert torch.allclose(out3, torch.tensor(0.0)), "Test 3 failed: addition of zero vectors must yield zero vector"
+
+    # Test 4: Constant vector addition
+    X4 = torch.full((100,), 5.0, dtype=torch.float32)
+    Y4 = torch.full((100,), 7.0, dtype=torch.float32)
+    out4 = vector_add(X4, Y4)
+    assert torch.allclose(out4, torch.tensor(12.0)), "Test 4 failed: constant vector addition incorrect"
+
+    print("All tests passed!")
+    print(f"Unaligned vector (N=983) successfully compiled and executed!")
+    print(f"Sample output values (first 5 elements):")
+    print(f"  {out2[:5]}")
+`,
+  },
 ]
+
