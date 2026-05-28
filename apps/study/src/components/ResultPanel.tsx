@@ -55,13 +55,13 @@ export function ResultPanel({ status, result, onGetHint }: Props) {
       </div>
 
       {result.output && (
-        <pre className="mb-3 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs font-mono text-gray-300 leading-relaxed">
+        <pre className="mb-3 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs font-mono text-gray-300 leading-relaxed custom-scrollbar">
           {result.output}
         </pre>
       )}
 
       {result.errors && (
-        <pre className="overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs font-mono text-red-300 leading-relaxed">
+        <pre className="overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs font-mono text-red-300 leading-relaxed custom-scrollbar">
           {result.errors}
         </pre>
       )}
