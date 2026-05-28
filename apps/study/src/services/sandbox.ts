@@ -14,11 +14,13 @@ export async function runCode(code: string, language: Language): Promise<Executi
     const result = await runCodeFn({ code, language })
     return result.data
   } catch (err: any) {
-    // If the functions emulator is not running, fall back to direct sandbox fetch in development
     const isNetworkError = 
       err.message?.toLowerCase().includes('failed to fetch') || 
-      err.code === 'unavailable' ||
-      err.code === 'internal'
+      err.message?.toLowerCase().includes('connection') ||
+      err.code?.includes('unavailable') ||
+      err.code?.includes('internal') ||
+      err.code?.includes('network')
+
 
     if (import.meta.env.DEV && isNetworkError) {
       console.warn('Firebase Cloud Functions emulator is down. Falling back to direct local Sandbox service fetch on port 3001...')
