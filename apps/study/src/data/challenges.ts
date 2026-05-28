@@ -103,6 +103,68 @@ if __name__ == "__main__":
     print(f"Output shape: {out.shape}")
     print(f"Output:\\n{out}")
 `,
+    solutionCode: `import torch
+
+
+def linear_forward(X: torch.Tensor, W: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """
+    Forward pass of a linear layer: output = X @ W + b
+
+    Args:
+        X: Input matrix of shape (batch_size, in_features)
+        W: Weight matrix of shape (in_features, out_features)
+        b: Bias vector of shape (out_features,)
+
+    Returns:
+        Output matrix of shape (batch_size, out_features)
+    """
+    return X @ W + b
+
+
+# ── Test harness (do not modify below this line) ───────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    # Test 1: basic forward pass
+    X = torch.tensor([[1.0, 2.0, 3.0],
+                      [4.0, 5.0, 6.0]])
+    W = torch.tensor([[0.1, 0.2],
+                      [0.3, 0.4],
+                      [0.5, 0.6]])
+    b = torch.tensor([0.1, 0.2])
+
+    out = linear_forward(X, W, b)
+
+    assert out is not None, "linear_forward returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (2, 2), f"Shape mismatch: expected (2, 2), got {out.shape}"
+
+    expected = torch.tensor([[2.3, 3.0],
+                             [5.0, 6.6]])
+    assert torch.allclose(out, expected, atol=1e-5), (
+        f"Values incorrect.\\nGot:\\n{out}\\nExpected:\\n{expected}"
+    )
+
+    # Test 2: single sample
+    X2 = torch.ones((1, 4))
+    W2 = torch.eye(4)
+    b2 = torch.zeros(4)
+    out2 = linear_forward(X2, W2, b2)
+    assert out2.shape == (1, 4), f"Shape mismatch for single sample: {out2.shape}"
+    assert torch.allclose(out2, torch.ones((1, 4))), "Identity weight + zero bias should return input unchanged"
+
+    # Test 3: bias shift
+    X3 = torch.zeros((3, 2))
+    W3 = torch.zeros((2, 5))
+    b3 = torch.full((5,), 7.0)
+    out3 = linear_forward(X3, W3, b3)
+    assert torch.allclose(out3, torch.tensor(7.0)), "Zero input + zero weights should output the bias value"
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Output:\\n{out}")
+`,
   },
 
   {
@@ -160,6 +222,60 @@ def relu(x: torch.Tensor) -> torch.Tensor:
     """
     # YOUR CODE HERE
     pass
+
+
+# ── Test harness (do not modify below this line) ───────────────────────────────
+
+if __name__ == "__main__":
+    # Test 1: basic 1-D case
+    x1 = torch.tensor([-3.0, -1.0, 0.0, 1.0, 3.0])
+    out1 = relu(x1)
+    expected1 = torch.tensor([0.0, 0.0, 0.0, 1.0, 3.0])
+
+    assert out1 is not None, "relu returned None — did you forget to return?"
+    assert out1.shape == x1.shape, f"Shape must be preserved: expected {x1.shape}, got {out1.shape}"
+    assert torch.allclose(out1, expected1), f"1-D test failed.\\nGot:      {out1}\\nExpected: {expected1}"
+
+    # Test 2: 2-D array
+    x2 = torch.tensor([[-1.0,  2.0],
+                       [ 3.0, -4.0]])
+    out2 = relu(x2)
+    expected2 = torch.tensor([[0.0, 2.0],
+                              [3.0, 0.0]])
+    assert out2.shape == x2.shape, "Shape must be preserved for 2-D input"
+    assert torch.allclose(out2, expected2), f"2-D test failed.\\nGot:\\n{out2}\\nExpected:\\n{expected2}"
+
+    # Test 3: all-negative
+    x3 = torch.tensor([-5.0, -0.001, -100.0])
+    out3 = relu(x3)
+    assert torch.all(out3 == 0.0), "All-negative input should produce all-zero output"
+
+    # Test 4: no in-place mutation of input
+    x4 = torch.tensor([-1.0, 2.0, -3.0])
+    x4_copy = x4.clone()
+    _ = relu(x4)
+    assert torch.allclose(x4, x4_copy), "relu must not modify the input array in-place"
+
+    print("All tests passed!")
+    print(f"relu([-3, -1, 0, 1, 3]) = {out1}")
+`,
+    solutionCode: `import torch
+
+
+def relu(x: torch.Tensor) -> torch.Tensor:
+    """
+    Rectified Linear Unit activation: relu(x) = max(0, x)
+
+    Applied element-wise. Negative values become 0; non-negatives
+    are unchanged.
+
+    Args:
+        x: Input tensor of any shape.
+
+    Returns:
+        Tensor of the same shape with negative values zeroed out.
+    """
+    return torch.clamp(x, min=0.0)
 
 
 # ── Test harness (do not modify below this line) ───────────────────────────────
@@ -272,6 +388,82 @@ def scaled_dot_product_attention(
     """
     # YOUR CODE HERE
     pass
+
+
+# ── Test harness (do not modify below this line) ───────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(0)
+
+    seq_len, d_k, d_v = 4, 8, 8
+
+    Q = torch.randn(seq_len, d_k)
+    K = torch.randn(seq_len, d_k)
+    V = torch.randn(seq_len, d_v)
+
+    out = scaled_dot_product_attention(Q, K, V)
+
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert out.shape == (seq_len, d_v), (
+        f"Output shape wrong: expected ({seq_len}, {d_v}), got {out.shape}"
+    )
+
+    # Verify against reference implementation
+    scores = Q @ K.T / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+    weights = softmax(scores)
+    expected = weights @ V
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Output does not match reference.\\nMax diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # Attention weights must sum to 1 per query
+    computed_weights = softmax(Q @ K.T / torch.sqrt(torch.tensor(d_k, dtype=torch.float32)))
+    row_sums = computed_weights.sum(dim=-1)
+    assert torch.allclose(row_sums, torch.ones(seq_len), atol=1e-6), (
+        f"Attention weights must sum to 1 per row.\\nGot: {row_sums}"
+    )
+
+    # Verify scaling: unscaled scores should have higher variance
+    unscaled_scores = Q @ K.T
+    scaled_scores = unscaled_scores / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+    assert scaled_scores.std() < unscaled_scores.std(), "Scaling should reduce score variance"
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Attention weights (first query, rounded):")
+    print(f"  {torch.round(computed_weights[0] * 1000) / 1000}")
+    print(f"  (sum = {computed_weights[0].sum():.6f})")
+`,
+    solutionCode: `import torch
+
+
+def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """Numerically stable softmax. Provided — do not modify."""
+    x_max = torch.max(x, dim=dim, keepdim=True).values
+    e_x = torch.exp(x - x_max)
+    return e_x / torch.sum(e_x, dim=dim, keepdim=True)
+
+
+def scaled_dot_product_attention(
+    Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor
+) -> torch.Tensor:
+    """
+    Scaled dot-product attention.
+
+    Attention(Q, K, V) = softmax(Q @ K^T / sqrt(d_k)) @ V
+
+    Args:
+        Q: Query matrix  of shape (seq_len, d_k)
+        K: Key matrix    of shape (seq_len, d_k)
+        V: Value matrix  of shape (seq_len, d_v)
+
+    Returns:
+        Output of shape (seq_len, d_v)
+    """
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+    weights = softmax(scores)
+    return weights @ V
 
 
 # ── Test harness (do not modify below this line) ───────────────────────────────
@@ -447,6 +639,86 @@ if __name__ == "__main__":
     print(f"Per-sample means: {out1.mean(dim=-1)}  (should be ~0)")
     print(f"Per-sample stds:  {out1.std(dim=-1, unbiased=False)}  (should be ~1)")
 `,
+    solutionCode: `import torch
+
+
+def layer_norm(
+    x: torch.Tensor,
+    gamma: torch.Tensor,
+    beta: torch.Tensor,
+    eps: float = 1e-5,
+) -> torch.Tensor:
+    """
+    Layer Normalization over the last dimension.
+
+    LayerNorm(x) = gamma * (x - mean) / sqrt(var + eps) + beta
+
+    Args:
+        x:     Input tensor. Common shapes: (batch, d_model) or (batch, seq, d_model).
+        gamma: Scale parameter of shape (d_model,).
+        beta:  Shift parameter of shape (d_model,).
+        eps:   Numerical stability constant.
+
+    Returns:
+        Normalized tensor of the same shape as x.
+    """
+    mean = torch.mean(x, dim=-1, keepdim=True)
+    var = torch.var(x, dim=-1, keepdim=True, unbiased=False)
+    x_norm = (x - mean) / torch.sqrt(var + eps)
+    return gamma * x_norm + beta
+
+
+# ── Test harness (do not modify below this line) ───────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+    d_model = 4
+
+    # Test 1: identity params (gamma=1, beta=0) → mean≈0, std≈1 per sample
+    x1 = torch.tensor([[1.0, 2.0, 3.0, 4.0],
+                       [4.0, 3.0, 2.0, 1.0]])
+    gamma1 = torch.ones(d_model)
+    beta1 = torch.zeros(d_model)
+
+    out1 = layer_norm(x1, gamma1, beta1)
+
+    assert out1 is not None, "Function returned None — did you forget to return?"
+    assert out1.shape == x1.shape, f"Shape mismatch: expected {x1.shape}, got {out1.shape}"
+
+    means = out1.mean(dim=-1)
+    stds  = out1.std(dim=-1, unbiased=False)
+    assert torch.allclose(means, torch.tensor(0.0), atol=1e-5), (
+        f"Normalised means should be ~0. Got: {means}"
+    )
+    assert torch.allclose(stds, torch.tensor(1.0), atol=1e-5), (
+        f"Normalised stds should be ~1. Got: {stds}"
+    )
+
+    # Test 2: gamma=2, beta=1 → mean should be ~beta mean, std ~gamma
+    gamma2 = torch.full((d_model,), 2.0)
+    beta2  = torch.full((d_model,), 1.0)
+    out2 = layer_norm(x1, gamma2, beta2)
+    assert torch.allclose(out2.mean(dim=-1), torch.tensor(1.0), atol=1e-5), (
+        "With uniform gamma and beta, row mean should equal beta value"
+    )
+
+    # Test 3: 3-D input (batch, seq, d_model)
+    x3 = torch.randn(2, 5, d_model)
+    out3 = layer_norm(x3, gamma1, beta1)
+    assert out3.shape == x3.shape, "Shape must be preserved for 3-D input"
+    means3 = out3.mean(dim=-1)
+    assert torch.allclose(means3, torch.tensor(0.0), atol=1e-5), "3-D: per-position means should be ~0"
+
+    # Test 4: constant input — all same value, variance=0, eps should prevent NaN
+    x4 = torch.full((2, d_model), 5.0)
+    out4 = layer_norm(x4, gamma1, beta1)
+    assert not torch.any(torch.isnan(out4)), "NaN detected — eps should prevent division by zero"
+
+    print("All tests passed!")
+    print(f"Output (gamma=1, beta=0):\\n{torch.round(out1 * 10000) / 10000}")
+    print(f"Per-sample means: {out1.mean(dim=-1)}  (should be ~0)")
+    print(f"Per-sample stds:  {out1.std(dim=-1, unbiased=False)}  (should be ~1)")
+`,
   },
 
   {
@@ -549,6 +821,123 @@ def multi_head_attention(
     """
     # YOUR CODE HERE
     pass
+
+
+# ── Test harness (do not modify below this line) ───────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(7)
+
+    seq_len  = 6
+    d_model  = 16
+    num_heads = 4
+    d_k = d_model // num_heads  # 4 per head
+
+    # Random inputs and weight matrices
+    Q  = torch.randn(seq_len, d_model)
+    K  = torch.randn(seq_len, d_model)
+    V  = torch.randn(seq_len, d_model)
+    W_q = torch.randn(d_model, d_model)
+    W_k = torch.randn(d_model, d_model)
+    W_v = torch.randn(d_model, d_model)
+    W_o = torch.randn(d_model, d_model)
+
+    out = multi_head_attention(Q, K, V, W_q, W_k, W_v, W_o, num_heads)
+
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (seq_len, d_model), (
+        f"Output shape wrong: expected ({seq_len}, {d_model}), got {out.shape}"
+    )
+
+    # Reference implementation
+    def _ref(Q, K, V, W_q, W_k, W_v, W_o, num_heads):
+        seq_len, d_model = Q.shape
+        d_k = d_model // num_heads
+        Q_proj = (Q @ W_q).reshape(seq_len, num_heads, d_k).permute(1, 0, 2)
+        K_proj = (K @ W_k).reshape(seq_len, num_heads, d_k).permute(1, 0, 2)
+        V_proj = (V @ W_v).reshape(seq_len, num_heads, d_k).permute(1, 0, 2)
+        heads = [scaled_dot_product_attention(Q_proj[i], K_proj[i], V_proj[i])
+                 for i in range(num_heads)]
+        return torch.cat(heads, dim=-1) @ W_o
+
+    expected = _ref(Q, K, V, W_q, W_k, W_v, W_o, num_heads)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Output does not match reference.\\nMax diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # Projections must be used: output should change when W_q changes
+    W_q2 = torch.randn(d_model, d_model)
+    out2 = multi_head_attention(Q, K, V, W_q2, W_k, W_v, W_o, num_heads)
+    assert not torch.allclose(out, out2), (
+        "Output did not change when W_q was replaced — are you actually projecting Q?"
+    )
+
+    # Increasing heads with same weights must change the output
+    out_h2 = multi_head_attention(Q, K, V, W_q, W_k, W_v, W_o, num_heads=2)
+    assert not torch.allclose(out, out_h2), (
+        "Output should differ for num_heads=2 vs num_heads=4"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape:  {out.shape}")
+    print(f"num_heads=4  output[0,:4]: {torch.round(out[0, :4] * 10000) / 10000}")
+    print(f"num_heads=2  output[0,:4]: {torch.round(out_h2[0, :4] * 10000) / 10000}")
+`,
+    solutionCode: `import torch
+
+
+def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """Numerically stable softmax. Provided — do not modify."""
+    x_max = torch.max(x, dim=dim, keepdim=True).values
+    e_x = torch.exp(x - x_max)
+    return e_x / torch.sum(e_x, dim=dim, keepdim=True)
+
+
+def scaled_dot_product_attention(
+    Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor
+) -> torch.Tensor:
+    """Single-head scaled dot-product attention. Provided — do not modify."""
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+    return softmax(scores) @ V
+
+
+def multi_head_attention(
+    Q: torch.Tensor,
+    K: torch.Tensor,
+    V: torch.Tensor,
+    W_q: torch.Tensor,
+    W_k: torch.Tensor,
+    W_v: torch.Tensor,
+    W_o: torch.Tensor,
+    num_heads: int,
+) -> torch.Tensor:
+    """
+    Multi-head attention.
+
+    MultiHead(Q, K, V) = Concat(head_1, ..., head_h) W_O
+    where head_i = Attention(Q W_Qi, K W_Ki, V W_Vi)
+
+    Args:
+        Q, K, V:   Input tensors of shape (seq_len, d_model)
+        W_q, W_k, W_v: Projection matrices of shape (d_model, d_model)
+        W_o:       Output projection of shape (d_model, d_model)
+        num_heads: Number of attention heads h.
+                   Requires d_model % num_heads == 0.
+
+    Returns:
+        Output of shape (seq_len, d_model)
+    """
+    seq_len, d_model = Q.shape
+    d_k = d_model // num_heads
+    Q_proj = (Q @ W_q).reshape(seq_len, num_heads, d_k).permute(1, 0, 2)
+    K_proj = (K @ W_k).reshape(seq_len, num_heads, d_k).permute(1, 0, 2)
+    V_proj = (V @ W_v).reshape(seq_len, num_heads, d_k).permute(1, 0, 2)
+    heads = [scaled_dot_product_attention(Q_proj[i], K_proj[i], V_proj[i])
+             for i in range(num_heads)]
+    concat = torch.cat(heads, dim=-1)
+    return concat @ W_o
 
 
 # ── Test harness (do not modify below this line) ───────────────────────────────
@@ -794,6 +1183,116 @@ if __name__ == "__main__":
     print(f"Position-0 identity error: {torch.max(torch.abs(out_pos0 - x_pos0)):.2e}  (should be ~0)")
     print(f"Max norm drift:            {torch.max(torch.abs(norms_in - norms_out)):.2e}  (should be ~0)")
 `,
+    solutionCode: `import torch
+
+
+# ── Provided helper (do not modify) ──────────────────────────────────────────
+
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    """Split x into two halves and return [-second_half | first_half]. Provided — do not modify."""
+    half = x.shape[-1] // 2
+    x1, x2 = x[..., :half], x[..., half:]
+    return torch.cat([-x2, x1], dim=-1)
+
+
+def apply_rotary_embeddings(
+    x: torch.Tensor,
+    positions: torch.Tensor,
+    base: float = 10000.0,
+) -> torch.Tensor:
+    """
+    Apply Rotary Position Embeddings (RoPE) to a query or key matrix.
+
+    Each consecutive pair (x_{2i}, x_{2i+1}) is rotated by angle m*theta_i,
+    where m is the token position and theta_i = base^(-2i/d_head).
+
+    Efficient form:  x_rot = x * cos_emb + rotate_half(x) * sin_emb
+
+    Args:
+        x:         Query or key tensor of shape (seq_len, d_head). d_head must be even.
+        positions: Integer token position indices of shape (seq_len,).
+        base:      Frequency base (default 10000.0, as in the RoFormer paper).
+
+    Returns:
+        Rotated tensor of shape (seq_len, d_head).
+    """
+    seq_len, d_head = x.shape
+    half = d_head // 2
+    i = torch.arange(half, dtype=torch.float32)
+    theta = base ** (-2.0 * i / d_head)
+    angles = positions.unsqueeze(1) * theta.unsqueeze(0)
+    cos_emb = torch.cat([torch.cos(angles), torch.cos(angles)], dim=-1)
+    sin_emb = torch.cat([torch.sin(angles), torch.sin(angles)], dim=-1)
+    return x * cos_emb + rotate_half(x) * sin_emb
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(17)
+
+    seq_len, d_head = 6, 8
+    x = torch.randn(seq_len, d_head)
+    positions = torch.arange(seq_len)
+
+    out = apply_rotary_embeddings(x, positions)
+
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (seq_len, d_head), (
+        f"Shape wrong: expected ({seq_len}, {d_head}), got {out.shape}"
+    )
+
+    # Reference implementation
+    def _ref(x, positions, base=10000.0):
+        seq_len, d_head = x.shape
+        half = d_head // 2
+        i = torch.arange(half, dtype=torch.float32)
+        theta = base ** (-2.0 * i / d_head)
+        angles = positions.unsqueeze(1) * theta.unsqueeze(0)
+        cos_emb = torch.cat([torch.cos(angles), torch.cos(angles)], dim=-1)
+        sin_emb = torch.cat([torch.sin(angles), torch.sin(angles)], dim=-1)
+        x1, x2 = x[:, :half], x[:, half:]
+        rx = torch.cat([-x2, x1], dim=-1)
+        return x * cos_emb + rx * sin_emb
+
+    expected = _ref(x, positions)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # Test 2: position 0 is the identity (all angles = 0, cos=1, sin=0)
+    x_pos0 = torch.randn(1, d_head)
+    out_pos0 = apply_rotary_embeddings(x_pos0, torch.tensor([0]))
+    assert torch.allclose(out_pos0, x_pos0, atol=1e-6), (
+        "At position 0 all rotation angles are 0, so apply_rotary_embeddings must return x unchanged"
+    )
+
+    # Test 3: rotation preserves L2 norm (RoPE is block-orthogonal)
+    norms_in = torch.linalg.vector_norm(x, dim=-1)
+    norms_out = torch.linalg.vector_norm(out, dim=-1)
+    assert torch.allclose(norms_in, norms_out, atol=1e-5), (
+        f"RoPE must preserve each token L2 norm. Max norm drift: {torch.max(torch.abs(norms_in - norms_out)):.2e}"
+    )
+
+    # Test 4: different positions → different output (wrong-implementation detector)
+    positions_shifted = positions + 5
+    out_shifted = apply_rotary_embeddings(x, positions_shifted)
+    assert not torch.allclose(out, out_shifted), (
+        "Output did not change when positions shifted by 5 — are you using the positions argument?"
+    )
+
+    # Test 5: different base → different output (wrong-implementation detector)
+    out_base100 = apply_rotary_embeddings(x, positions, base=100.0)
+    assert not torch.allclose(out, out_base100), (
+        "Output did not change when base changed to 100.0 — are you using the base argument?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Position-0 identity error: {torch.max(torch.abs(out_pos0 - x_pos0)):.2e}  (should be ~0)")
+    print(f"Max norm drift:            {torch.max(torch.abs(norms_in - norms_out)):.2e}  (should be ~0)")
+`,
   },
   {
     id: 'proportional-rope',
@@ -910,6 +1409,128 @@ def apply_proportional_rope(
     """
     # YOUR CODE HERE
     pass
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(81)
+
+    seq_len, d_head = 6, 8
+    x = torch.randn(seq_len, d_head)
+    positions = torch.arange(seq_len)
+
+    out = apply_proportional_rope(x, positions, rope_percentage=0.5)
+
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (seq_len, d_head), (
+        f"Shape wrong: expected ({seq_len}, {d_head}), got {out.shape}"
+    )
+
+    # Reference implementation
+    def _ref(x, positions, rope_percentage=0.5, base=10000.0):
+        seq_len, d_head = x.shape
+        half = d_head // 2
+        rope_angles = int(rope_percentage * half)
+        nope_angles = half - rope_angles
+        i = torch.arange(rope_angles, dtype=torch.float32)
+        theta_rotated = base ** (-2.0 * i / d_head)
+        import torch.nn.functional as F
+        theta = F.pad(theta_rotated, (0, nope_angles), value=0.0)
+        angles = positions.unsqueeze(1) * theta.unsqueeze(0)
+        cos_emb = torch.cat([torch.cos(angles), torch.cos(angles)], dim=-1)
+        sin_emb = torch.cat([torch.sin(angles), torch.sin(angles)], dim=-1)
+        return x * cos_emb + rotate_half(x) * sin_emb
+
+    expected = _ref(x, positions, rope_percentage=0.5)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 2: rope_percentage = 0.0 is NoPE (Identity mapping) ─────────────────
+    out_nope = apply_proportional_rope(x, positions, rope_percentage=0.0)
+    assert torch.allclose(out_nope, x, atol=1e-6), (
+        "With rope_percentage = 0.0, output must be identical to input x"
+    )
+
+    # ── Test 3: rope_percentage = 1.0 matches standard RoPE ──────────────────────
+    out_full = apply_proportional_rope(x, positions, rope_percentage=1.0)
+    expected_full = _ref(x, positions, rope_percentage=1.0)
+    assert torch.allclose(out_full, expected_full, atol=1e-6), (
+        "With rope_percentage = 1.0, output must match standard RoPE exactly"
+    )
+
+    # ── Test 4: rotation preserves L2 norm (RoPE is block-orthogonal) ─────────────
+    norms_in = torch.linalg.vector_norm(x, dim=-1)
+    norms_out = torch.linalg.vector_norm(out, dim=-1)
+    assert torch.allclose(norms_in, norms_out, atol=1e-5), (
+        f"p-RoPE must preserve each token L2 norm. Max norm drift: {torch.max(torch.abs(norms_in - norms_out)):.2e}"
+    )
+
+    # ── Test 5: wrong-implementation detectors ────────────────────────────────────
+    # Test 5.1: different positions → different output
+    out_shifted = apply_proportional_rope(x, positions + 5, rope_percentage=0.5)
+    assert not torch.allclose(out, out_shifted), (
+        "Output did not change when positions shifted — are you using the positions argument?"
+    )
+
+    # Test 5.2: different rope_percentage → different output
+    out_p75 = apply_proportional_rope(x, positions, rope_percentage=0.75)
+    assert not torch.allclose(out, out_p75), (
+        "Output did not change when rope_percentage changed — are you using it?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Norm drift: {torch.max(torch.abs(norms_in - norms_out)):.2e}  (should be ~0)")
+    print(f"NoPE identity check error: {torch.max(torch.abs(out_nope - x)):.2e}  (should be ~0)")
+`,
+    solutionCode: `import torch
+
+
+# ── Provided helper (do not modify) ──────────────────────────────────────────
+
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    """Split x into two halves and return [-second_half | first_half]. Provided — do not modify."""
+    half = x.shape[-1] // 2
+    x1, x2 = x[..., :half], x[..., half:]
+    return torch.cat([-x2, x1], dim=-1)
+
+
+def apply_proportional_rope(
+    x: torch.Tensor,
+    positions: torch.Tensor,
+    rope_percentage: float = 0.5,
+    base: float = 10000.0,
+) -> torch.Tensor:
+    """
+    Apply Proportional/Partial Rotary Position Embeddings (p-RoPE) to a query or key matrix.
+
+    Only the first rope_percentage fraction of dimensions are rotated.
+    The remaining dimensions are left unrotated to act as stable semantic channels.
+
+    Args:
+        x:               Query or key tensor of shape (seq_len, d_head). d_head must be even.
+        positions:       Integer token position indices of shape (seq_len,).
+        rope_percentage: Fraction of frequency channels to keep (between 0.0 and 1.0).
+        base:            Frequency base (default 10000.0).
+
+    Returns:
+        Rotated tensor of shape (seq_len, d_head).
+    """
+    seq_len, d_head = x.shape
+    half = d_head // 2
+    rope_angles = int(rope_percentage * half)
+    nope_angles = half - rope_angles
+    i = torch.arange(rope_angles, dtype=torch.float32)
+    theta_rotated = base ** (-2.0 * i / d_head)
+    import torch.nn.functional as F
+    theta = F.pad(theta_rotated, (0, nope_angles), value=0.0)
+    angles = positions.unsqueeze(1) * theta.unsqueeze(0)
+    cos_emb = torch.cat([torch.cos(angles), torch.cos(angles)], dim=-1)
+    sin_emb = torch.cat([torch.sin(angles), torch.sin(angles)], dim=-1)
+    return x * cos_emb + rotate_half(x) * sin_emb
 
 
 # ── Test harness (do not modify below this line) ──────────────────────────────
@@ -1134,6 +1755,98 @@ if __name__ == "__main__":
     print(f"Sample output values (first 5 elements):")
     print(f"  {out2[:5]}")
 `,
+    solutionCode: `import torch
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def add_kernel(
+    x_ptr,
+    y_ptr,
+    output_ptr,
+    n_elements: int,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """
+    Triton vector addition kernel.
+    Computes output_ptr[i] = x_ptr[i] + y_ptr[i] in parallel blocks of BLOCK_SIZE.
+
+    Args:
+        x_ptr:      Pointer to first input vector in DRAM.
+        y_ptr:      Pointer to second input vector in DRAM.
+        output_ptr: Pointer to output vector in DRAM.
+        n_elements: Total number of elements in the vectors.
+        BLOCK_SIZE: Number of elements processed by each program instance.
+    """
+    pid = tl.program_id(axis=0)
+    block_start = pid * BLOCK_SIZE
+    offsets = block_start + tl.arange(0, BLOCK_SIZE)
+    mask = offsets < n_elements
+    x = tl.load(x_ptr + offsets, mask=mask)
+    y = tl.load(y_ptr + offsets, mask=mask)
+    output = x + y
+    tl.store(output_ptr + offsets, output, mask=mask)
+
+
+# ── Launcher helper (do not modify) ──────────────────────────────────────────
+
+def vector_add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """Launcher helper that allocates output memory, defines grid, and executes kernel."""
+    output = torch.empty_like(x)
+    n_elements = x.numel()
+    BLOCK_SIZE = 512
+    # The grid is a 1D sequence of blocks
+    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE)
+    return output
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    # Test 1: Vector size perfectly divisible by BLOCK_SIZE (512 * 2 = 1024)
+    N1 = 1024
+    X1 = torch.randn(N1, dtype=torch.float32)
+    Y1 = torch.randn(N1, dtype=torch.float32)
+
+    out1 = vector_add(X1, Y1)
+    assert out1 is not None, "vector_add returned None — did you forget to return in your launcher or kernel?"
+    assert isinstance(out1, torch.Tensor), f"Expected torch.Tensor, got {type(out1)}"
+    assert out1.shape == (N1,), f"Shape wrong: expected ({N1},), got {out1.shape}"
+
+    expected1 = X1 + Y1
+    assert torch.allclose(out1, expected1, atol=1e-5), "Test 1 failed: values do not match native PyTorch addition"
+
+    # Test 2: Vector size NOT divisible by BLOCK_SIZE (edge masking test)
+    N2 = 983
+    X2 = torch.randn(N2, dtype=torch.float32)
+    Y2 = torch.randn(N2, dtype=torch.float32)
+
+    out2 = vector_add(X2, Y2)
+    assert out2.shape == (N2,), f"Shape wrong for unaligned vector: expected ({N2},), got {out2.shape}"
+
+    expected2 = X2 + Y2
+    assert torch.allclose(out2, expected2, atol=1e-5), "Test 2 failed: boundary masking is incorrect or missing"
+
+    # Test 3: Zero vector addition
+    X3 = torch.zeros(300, dtype=torch.float32)
+    Y3 = torch.zeros(300, dtype=torch.float32)
+    out3 = vector_add(X3, Y3)
+    assert torch.allclose(out3, torch.tensor(0.0)), "Test 3 failed: addition of zero vectors must yield zero vector"
+
+    # Test 4: Constant vector addition
+    X4 = torch.full((100,), 5.0, dtype=torch.float32)
+    Y4 = torch.full((100,), 7.0, dtype=torch.float32)
+    out4 = vector_add(X4, Y4)
+    assert torch.allclose(out4, torch.tensor(12.0)), "Test 4 failed: constant vector addition incorrect"
+
+    print("All tests passed!")
+    print(f"Unaligned vector (N=983) successfully compiled and executed!")
+    print(f"Sample output values (first 5 elements):")
+    print(f"  {out2[:5]}")
+`,
   },
 ]
-

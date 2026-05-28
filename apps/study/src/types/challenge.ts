@@ -18,6 +18,8 @@ export interface Challenge {
   staticHint: string
   /** Optional interactive visualization rendered above the description */
   visualization?: ComponentType
+  /** Completed working code solution shown on Reveal Answer request */
+  solutionCode?: string
 }
 
 export interface ExecutionResult {

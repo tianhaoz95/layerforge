@@ -72,6 +72,15 @@ export function ChallengePage() {
     setShowHint(false)
   }
 
+  const handleRevealAnswer = () => {
+    if (challenge.solutionCode) {
+      setCode(challenge.solutionCode)
+      setStatus('idle')
+      setResult(null)
+      setShowHint(false)
+    }
+  }
+
   return (
     <div className="flex h-screen flex-col bg-gray-950 text-gray-100 overflow-hidden">
       {/* Header */}
@@ -155,12 +164,26 @@ export function ChallengePage() {
 
           {/* Editor toolbar */}
           <div className="flex items-center justify-between border-t border-gray-800 bg-gray-900 px-5 py-3">
-            <button
-              onClick={handleReset}
-              className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              Reset to starter
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleReset}
+                className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Reset to starter
+              </button>
+
+              {challenge.solutionCode && (
+                <>
+                  <span className="text-gray-700">|</span>
+                  <button
+                    onClick={handleRevealAnswer}
+                    className="text-sm text-cyan-500 hover:text-cyan-400 font-medium transition-colors"
+                  >
+                    Reveal Answer
+                  </button>
+                </>
+              )}
+            </div>
 
             <button
               onClick={handleSubmit}
