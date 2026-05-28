@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Python deps used by challenge test harnesses
-RUN pip install --no-cache-dir numpy
+RUN pip install --no-cache-dir numpy torch --index-url https://download.pytorch.org/whl/cpu
 
 WORKDIR /app
 COPY --from=builder /app/dist ./dist

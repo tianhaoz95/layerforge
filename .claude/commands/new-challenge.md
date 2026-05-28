@@ -90,14 +90,14 @@ Design decisions to make:
 
 **Difficulty**: assign based on the following rubric:
 - `beginner`: ≤ 2 algorithmic steps, all operations are standard linear algebra (matmul, add), no reshaping tricks required
-- `intermediate`: 3–5 steps, requires one non-obvious NumPy trick (keepdims, reshape+transpose, einsum, masked fill, etc.)
+- `intermediate`: 3–5 steps, requires one non-obvious PyTorch trick (keepdim, reshape+permute, einsum, masked_fill, etc.)
 - `advanced`: 5+ steps, or involves a genuinely subtle insight (e.g. causal masking, rotary embeddings, gradient-friendly formulation), or builds non-trivially on a previous intermediate challenge
 
 **Function signature**: design one primary function. Provide any needed helpers (with their correct implementations) as clearly marked "do not modify" blocks above it. This lets the user focus exclusively on the target concept.
 
 **Test strategy** — plan 4–6 assertions that collectively verify:
-1. Return type (`isinstance(out, np.ndarray)`) and shape
-2. Numerical correctness vs. an embedded reference implementation using `np.allclose`
+1. Return type (`isinstance(out, torch.Tensor)`) and shape
+2. Numerical correctness vs. an embedded reference implementation using `torch.allclose`
 3. At least one edge/boundary case (e.g. zero input, identity weights, single token)
 4. At least one "wrong implementation detector" — change a key input and assert the output changes (catches implementations that ignore a parameter)
 5. Any invariant the operation must satisfy (e.g. attention weights sum to 1, output norm properties)
@@ -147,7 +147,7 @@ A Socratic hint that surfaces the key insight without giving the implementation:
 Write the complete Python source file. Follow this exact structure:
 
 ```python
-import numpy as np
+import torch
 # other stdlib-only imports if needed (math, typing)
 
 
@@ -156,14 +156,14 @@ import numpy as np
 # Each marked clearly: "Provided — do not modify."
 
 
-def <primary_function>(<typed_args>) -> np.ndarray:
+def <primary_function>(<typed_args>) -> torch.Tensor:
     """
     <One-line summary of what this computes.>
 
     <Formula in docstring, matching the description field.>
 
     Args:
-        <arg>: <type hint and shape, e.g. "Query matrix of shape (seq_len, d_k)">
+        <arg>: <type hint and shape, e.g. "Query tensor of shape (seq_len, d_k)">
         ...
     Returns:
         <description>: shape (<dims>)
@@ -175,13 +175,13 @@ def <primary_function>(<typed_args>) -> np.ndarray:
 # ── Test harness (do not modify below this line) ──────────────────────────────
 
 if __name__ == "__main__":
-    np.random.seed(<pick a seed between 0 and 99>)
+    torch.manual_seed(<pick a seed between 0 and 99>)
 
     # ── Test 1: <brief description> ───────────────────────────────────────────
     <setup>
     <call function>
     assert out is not None, "Function returned None — did you forget to return?"
-    assert isinstance(out, np.ndarray), f"Expected np.ndarray, got {type(out)}"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
     assert out.shape == (...), f"Shape wrong: expected ..., got {out.shape}"
 
     # Reference implementation for numerical comparison
@@ -189,8 +189,8 @@ if __name__ == "__main__":
         <correct implementation, 5–15 lines>
 
     expected = _ref(...)
-    assert np.allclose(out, expected, atol=1e-6), (
-        f"Numerical mismatch. Max diff: {np.max(np.abs(out - expected)):.2e}"
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
     )
 
     # ── Test 2: <edge/boundary case> ─────────────────────────────────────────
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     # ── Test 4: wrong-implementation detector ────────────────────────────────
     <change a key parameter>
     out_changed = <call with changed param>
-    assert not np.allclose(out, out_changed), (
+    assert not torch.allclose(out, out_changed), (
         "Output did not change when <param> was replaced — are you using it?"
     )
 
