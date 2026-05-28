@@ -64,7 +64,7 @@ export const runCode = functions.https.onCall(async (request) => {
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
       throw new functions.https.HttpsError(
-        'internal',
+        'failed-precondition',
         errBody.message || `Sandbox error: HTTP ${res.status}`
       );
     }
@@ -76,7 +76,7 @@ export const runCode = functions.https.onCall(async (request) => {
       throw err;
     }
     throw new functions.https.HttpsError(
-      'internal',
+      'unavailable',
       err instanceof Error ? err.message : 'Failed to communicate with sandbox'
     );
   }

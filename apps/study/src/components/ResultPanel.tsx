@@ -25,6 +25,8 @@ export function ResultPanel({ status, result, onGetHint }: Props) {
       className={`rounded-xl border p-5 ${
         status === 'passed'
           ? 'border-emerald-500/30 bg-emerald-500/5'
+          : status === 'error'
+          ? 'border-amber-500/30 bg-amber-500/5'
           : 'border-red-500/30 bg-red-500/5'
       }`}
     >
@@ -32,6 +34,8 @@ export function ResultPanel({ status, result, onGetHint }: Props) {
         <div className="flex items-center gap-2">
           {status === 'passed' ? (
             <span className="text-emerald-400 font-semibold">✓ All tests passed</span>
+          ) : status === 'error' ? (
+            <span className="text-amber-400 font-semibold">⚠ Execution Error</span>
           ) : (
             <span className="text-red-400 font-semibold">✗ Tests failed</span>
           )}

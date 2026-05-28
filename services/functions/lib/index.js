@@ -33,7 +33,7 @@ exports.runCode = functions.https.onCall(async (request) => {
         });
         if (!res.ok) {
             const errBody = await res.json().catch(() => ({}));
-            throw new functions.https.HttpsError('internal', errBody.message || `Sandbox error: HTTP ${res.status}`);
+            throw new functions.https.HttpsError('failed-precondition', errBody.message || `Sandbox error: HTTP ${res.status}`);
         }
         const result = (await res.json());
         return result;
@@ -42,7 +42,7 @@ exports.runCode = functions.https.onCall(async (request) => {
         if (err instanceof functions.https.HttpsError) {
             throw err;
         }
-        throw new functions.https.HttpsError('internal', err instanceof Error ? err.message : 'Failed to communicate with sandbox');
+        throw new functions.https.HttpsError('unavailable', err instanceof Error ? err.message : 'Failed to communicate with sandbox');
     }
 });
 //# sourceMappingURL=index.js.map
