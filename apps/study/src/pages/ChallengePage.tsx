@@ -134,7 +134,7 @@ export function ChallengePage() {
         {/* Right pane: editor + results */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Editor */}
-          <div className="flex-1">
+          <div className="flex-1 min-h-0">
             <Editor
               height="100%"
               language={challenge.language === 'python' ? 'python' : 'rust'}
