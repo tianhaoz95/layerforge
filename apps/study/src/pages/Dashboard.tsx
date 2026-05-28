@@ -1,11 +1,13 @@
 import { challenges } from '../data/challenges'
 import { ChallengeCard } from '../components/ChallengeCard'
 import { useProgress } from '../hooks/useProgress'
+import { useAuth } from '../contexts/AuthContext'
 
 const modules = [...new Set(challenges.map((c) => c.module))]
 
 export function Dashboard() {
   const { progress } = useProgress()
+  const { user, loading, signIn, signOut } = useAuth()
 
   const completedCount = Object.values(progress).filter((p) => p.completed).length
 
@@ -19,10 +21,37 @@ export function Dashboard() {
             <span className="text-sm text-gray-500">
               {completedCount}/{challenges.length} completed
             </span>
-            {/* Phase 2: replace with real user avatar from Firebase Auth */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-400">
-              U
-            </div>
+            {!loading && (
+              user ? (
+                <div className="flex items-center gap-2">
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName ?? 'User'}
+                      referrerPolicy="no-referrer"
+                      className="h-8 w-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-400">
+                      {user.displayName?.[0]?.toUpperCase() ?? 'U'}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => void signOut()}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => void signIn()}
+                  className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-700 transition-colors"
+                >
+                  Sign in with Google
+                </button>
+              )
+            )}
           </div>
         </div>
       </header>

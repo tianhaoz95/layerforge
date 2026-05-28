@@ -26,6 +26,7 @@ check_dep() {
 check_dep node    "Install Node.js 20+ from https://nodejs.org"
 check_dep pnpm    "Run: npm install -g pnpm"
 check_dep python3 "Install Python 3.10+ from https://python.org"
+check_dep java    "Install Java 11+ (required for Firebase emulators): https://java.com"
 
 NODE_MAJOR=$(node -e "process.stdout.write(process.versions.node.split('.')[0])")
 if (( NODE_MAJOR < 20 )); then
@@ -45,9 +46,16 @@ if [ ! -d "$REPO_ROOT/node_modules" ]; then
   pnpm --dir "$REPO_ROOT" install
 fi
 
+FIREBASE="$REPO_ROOT/node_modules/.bin/firebase"
+if [ ! -x "$FIREBASE" ]; then
+  warn "firebase-tools not found in node_modules — running pnpm install..."
+  pnpm --dir "$REPO_ROOT" install
+fi
+
 # ── Graceful shutdown ─────────────────────────────────────────────────────────
 
 DEV_PID=""
+EMULATOR_PID=""
 
 cleanup() {
   # Reset all traps immediately to prevent re-entry if signals arrive during cleanup
@@ -56,24 +64,35 @@ cleanup() {
   echo ""
   log "Shutting down all services..."
 
+  # ── Stop Vite/pnpm dev ────────────────────────────────────────────────────
   if [[ -n "${DEV_PID:-}" ]] && kill -0 "$DEV_PID" 2>/dev/null; then
-    # Send SIGTERM to pnpm. When Ctrl+C is used, the whole foreground process
-    # group already received SIGINT (Vite and tsx are already stopping). This
-    # also covers the `kill <pid>` / SIGTERM case where children don't auto-receive.
     kill -TERM "$DEV_PID" 2>/dev/null || true
 
-    # Wait up to 5 s for a clean shutdown (25 × 0.2 s)
     local i=0
     while kill -0 "$DEV_PID" 2>/dev/null && (( i++ < 25 )); do
       sleep 0.2
     done
 
-    # Force-kill anything that didn't stop in time
     if kill -0 "$DEV_PID" 2>/dev/null; then
-      warn "Services did not stop within 5 s — force-killing..."
+      warn "Dev servers did not stop within 5 s — force-killing..."
       kill -KILL "$DEV_PID" 2>/dev/null || true
-      # Also kill any grandchildren that survived (e.g. detached Vite workers)
       pkill -KILL -P "$DEV_PID" 2>/dev/null || true
+    fi
+  fi
+
+  # ── Stop Firebase emulators ───────────────────────────────────────────────
+  if [[ -n "${EMULATOR_PID:-}" ]] && kill -0 "$EMULATOR_PID" 2>/dev/null; then
+    kill -TERM "$EMULATOR_PID" 2>/dev/null || true
+
+    local j=0
+    while kill -0 "$EMULATOR_PID" 2>/dev/null && (( j++ < 25 )); do
+      sleep 0.2
+    done
+
+    if kill -0 "$EMULATOR_PID" 2>/dev/null; then
+      warn "Firebase emulator did not stop within 5 s — force-killing..."
+      kill -KILL "$EMULATOR_PID" 2>/dev/null || true
+      pkill -KILL -P "$EMULATOR_PID" 2>/dev/null || true
     fi
   fi
 
@@ -83,19 +102,53 @@ cleanup() {
 
 trap cleanup INT TERM EXIT
 
-# ── Launch ────────────────────────────────────────────────────────────────────
+# ── Launch Firebase emulators ─────────────────────────────────────────────────
 
-ok "Starting LayerForge dev environment"
+log "Starting Firebase emulators (Auth :9099, Firestore :8080, UI :4000)..."
+
+cd "$REPO_ROOT"
+
+# On first run the import directory doesn't exist yet; import only when it does.
+EMULATOR_EXTRA_ARGS="--export-on-exit .firebase/emulator-data"
+if [ -d ".firebase/emulator-data" ]; then
+  EMULATOR_EXTRA_ARGS="--import .firebase/emulator-data $EMULATOR_EXTRA_ARGS"
+fi
+
+# shellcheck disable=SC2086
+"$FIREBASE" emulators:start --only auth,firestore --project demo-layerforge \
+  $EMULATOR_EXTRA_ARGS &
+EMULATOR_PID=$!
+
+# Wait for Auth emulator to be ready (up to ~18 s)
+EMULATOR_READY=0
+for _ in $(seq 1 60); do
+  if curl -sf http://localhost:9099/ >/dev/null 2>&1; then
+    EMULATOR_READY=1
+    break
+  fi
+  sleep 0.3
+done
+
+if [ "$EMULATOR_READY" = "0" ]; then
+  warn "Firebase Auth emulator did not become ready within 18 s."
+  warn "Check that Java 11+ is installed and no other process owns :9099."
+  exit 1
+fi
+
+ok "Firebase emulators ready"
+
+# ── Launch dev servers ────────────────────────────────────────────────────────
+
 echo ""
 echo -e "  ${CYAN}home${RESET}     →  http://localhost:5174"
 echo -e "  ${CYAN}preview${RESET}  →  http://localhost:5175"
 echo -e "  ${CYAN}study${RESET}    →  http://localhost:5173"
 echo -e "  ${CYAN}sandbox${RESET}  →  http://localhost:3001"
+echo -e "  ${CYAN}emulator UI${RESET}  →  http://localhost:4000"
 echo ""
 echo -e "  Press ${YELLOW}Ctrl+C${RESET} to stop all services."
 echo ""
 
-cd "$REPO_ROOT"
 pnpm dev &
 DEV_PID=$!
 

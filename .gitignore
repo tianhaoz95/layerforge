@@ -4,6 +4,9 @@ dist
 .env.*.local
 *.tsbuildinfo
 
+# Firebase emulator state
+.firebase/
+
 # Sandbox temp files
 /tmp/lf-*
 

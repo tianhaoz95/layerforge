@@ -1,18 +1,18 @@
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
 import type { ExecutionResult, Language } from '../types/challenge'
 
-const BASE = import.meta.env.VITE_SANDBOX_URL ?? '/api/sandbox'
-
 export async function runCode(code: string, language: Language): Promise<ExecutionResult> {
-  const res = await fetch(`${BASE}/run`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, language }),
-  })
+  const runCodeFn = httpsCallable<{ code: string; language: Language }, ExecutionResult>(
+    functions,
+    'runCode'
+  )
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(body.message ?? `Sandbox error: HTTP ${res.status}`)
+  try {
+    const result = await runCodeFn({ code, language })
+    return result.data
+  } catch (err: any) {
+    throw new Error(err.message || 'Failed to execute code in sandbox')
   }
-
-  return res.json() as Promise<ExecutionResult>
 }
+
