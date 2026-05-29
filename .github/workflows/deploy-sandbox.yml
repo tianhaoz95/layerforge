@@ -67,5 +67,13 @@ jobs:
             --concurrency 1
             --timeout 30s
 
+      - name: Grant Cloud Functions invoker access
+        run: |
+          gcloud run services add-iam-policy-binding sandbox \
+            --region=us-central1 \
+            --member="serviceAccount:layerforge-platform@appspot.gserviceaccount.com" \
+            --role="roles/run.invoker" \
+            --quiet
+
       - name: Print service URL
         run: echo "Sandbox deployed to ${{ steps.deploy.outputs.url }}"
