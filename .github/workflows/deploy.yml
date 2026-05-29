@@ -135,5 +135,18 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAYERFORGE_PLATFORM }}
 
+      - name: Diagnose billing API access
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          echo "--- Billing info response ---"
+          curl -s -w "\nHTTP %{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://cloudbilling.googleapis.com/v1/projects/layerforge-platform/billingInfo"
+          echo ""
+          echo "--- Enabled APIs (billing) ---"
+          curl -s -w "\nHTTP %{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://serviceusage.googleapis.com/v1/projects/604075361442/services/cloudbilling.googleapis.com"
+
       - name: Deploy functions
         run: npx firebase-tools deploy --only functions --project layerforge-platform --force
