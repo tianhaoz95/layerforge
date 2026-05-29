@@ -3,6 +3,7 @@ import { Conv2dVisualization } from '../visualizations/Conv2dVisualization'
 import { GQAVisualization } from '../visualizations/GQAVisualization'
 import { PRoPEVisualization } from '../visualizations/PRoPEVisualization'
 import { SinusoidalVisualization } from '../visualizations/SinusoidalVisualization'
+import { BPEVisualization } from '../visualizations/BPEVisualization'
 
 export const challenges: Challenge[] = [
   {
@@ -2948,4 +2949,229 @@ if __name__ == "__main__":
     print(f"Stride=2 output shape: {out_s2.shape}")
 `,
   },
+
+  {
+    id: 'bpe-tokenizer',
+    title: 'BPE Tokenizer with Training',
+    module: 'Tokenization',
+    difficulty: 'advanced',
+    language: 'python',
+    tags: ['text', 'tokenization', 'bpe', 'preprocessing', 'nlp'],
+    visualization: BPEVisualization,
+    description: `Byte Pair Encoding (BPE) is the foundational subword tokenization algorithm that modern Large Language Models (including GPT, LLaMA, and Claude) use to translate raw text into a vocabulary-optimized sequence of numeric token IDs.
+
+By balancing character-level tokenization (infinite flexibility, but extremely long sequences) and word-level tokenization (short sequences, but massive vocabularies with out-of-vocabulary / OOV issues), BPE identifies common subword patterns to construct a highly efficient vocabulary.
+
+Training BPE operates by iteratively finding the most frequent adjacent pair of tokens and merging them into a new vocabulary token. Encoding then applies these learned merges in the exact sequence they were trained.
+
+┌──────────────────────────────────────────────────────────────────┐
+│  pair_freq(u, v) = count(..., u, v, ...)                         │
+│  (u*, v*) = argmax_{u, v} pair_freq(u, v)                         │
+│  vocab_new = vocab_curr ∪ { (u*, v*) -> idx_new }                │
+└──────────────────────────────────────────────────────────────────┘
+
+📋 Tensor Reference Table:
+  +------------+------------------------------------+---------------------+
+  | Variable   | Description                        | Type/Shape          |
+  +------------+------------------------------------+---------------------+
+  | text       | input text string to train/encode  | str                 |
+  | vocab_size | target vocabulary size             | int                 |
+  | merges     | dictionary of BPE merge rules      | dict[(int,int),int] |
+  | output     | tokenized sequence of token IDs    | Tensor of shape (L,) |
+  +------------+------------------------------------+---------------------+
+
+ℹ️ See the interactive, animated step-by-step visualizer below to explore how raw text characters dynamically merge into subwords step-by-step!
+
+Steps:
+  1. Initialize merges as an empty dictionary, and vocabulary with all 256 basic byte values.
+  2. Convert training text into a list of UTF-8 byte integers (representing character/byte tokens).
+  3. Compute pair frequencies for all adjacent tokens in the current sequence.
+  4. Find the most frequent pair (break ties deterministically by selecting the pair with the lowest numeric token ID values).
+  5. Assign a new token ID (starting at 256) to this most frequent pair, and append the merge rule to the merges dictionary.
+  6. Replace all adjacent occurrences of this pair in the sequence with the new token ID.
+  7. Repeat steps 3-6 until vocabulary size is reached or no more pairs can be merged.
+  8. For encoding, convert the input text to a list of UTF-8 bytes and apply the learned merges in the exact order they were trained.
+
+Requirements:
+  • Implement BPE training (\`train_bpe\`) to learn the vocabulary merges.
+  • Implement BPE encoding (\`encode_bpe\`) to tokenize input text using learned merges.
+  • BPE training must break frequency ties deterministically: choose the pair with the smallest numeric values (e.g. key \`lambda p: (-freq, p)\`).
+  • BPE encoding must apply learned merges in the exact order they were created during training.
+  • BPE encoding must return a PyTorch 1D \`LongTensor\` of shape \`(L,)\` representing the token IDs.`,
+
+    staticHint: `A common pitfall is the order in which merges are applied during encoding. Since merges are learned sequentially, later merges might depend on the outputs of earlier merges. Therefore, in \`encode_bpe\`, you must apply the merges in the exact order they were trained!
+
+How do you get the correct order? The merge dictionary keys are pairs, but the values are the new token IDs (\`256, 257, 258...\`). Since token IDs are assigned sequentially, sorting the merges by their token ID value gives the exact chronological order of training:
+
+\`\`\`python
+# Sort merges by their new token ID (creation order)
+sorted_merges = sorted(merges.items(), key=lambda x: x[1])
+
+for pair, idx in sorted_merges:
+    ids = merge(ids, pair, idx)
+\`\`\`
+
+Also, remember that BPE operates on raw bytes. Use \`text.encode("utf-8")\` to convert the string to a byte sequence, then cast the final list of token IDs to a PyTorch LongTensor.`,
+
+    starterCode: `import torch
+from typing import Dict, Tuple, List
+
+
+# ── Provided helpers (do not modify) ─────────────────────────────────────────
+
+def get_stats(ids: List[int]) -> Dict[Tuple[int, int], int]:
+    """Calculate frequency of consecutive pairs of tokens."""
+    counts = {}
+    for pair in zip(ids, ids[1:]):
+        counts[pair] = counts.get(pair, 0) + 1
+    return counts
+
+
+def merge(ids: List[int], pair: Tuple[int, int], idx: int) -> List[int]:
+    """Replace all consecutive occurrences of \`pair\` with new token ID \`idx\`."""
+    newids = []
+    i = 0
+    while i < len(ids):
+        if i < len(ids) - 1 and ids[i] == pair[0] and ids[i+1] == pair[1]:
+            newids.append(idx)
+            i += 2
+        else:
+            newids.append(ids[i])
+            i += 1
+    return newids
+
+
+def train_bpe(text: str, vocab_size: int) -> Dict[Tuple[int, int], int]:
+    """
+    Trains BPE on the input text to learn up to vocab_size tokens.
+
+    Args:
+        text: Training corpus string.
+        vocab_size: Target vocabulary size (must be >= 256).
+
+    Returns:
+        merges: Dictionary mapping (token_id1, token_id2) -> new_token_id.
+    """
+    # YOUR CODE HERE
+    pass
+
+
+def encode_bpe(text: str, merges: Dict[Tuple[int, int], int]) -> torch.Tensor:
+    """
+    Encodes the input text using the learned BPE merges.
+
+    Args:
+        text: String to tokenize.
+        merges: Dictionary mapping (token_id1, token_id2) -> new_token_id.
+
+    Returns:
+        tokens: 1D PyTorch LongTensor of shape (L,) containing token IDs.
+    """
+    # YOUR CODE HERE
+    pass
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+def _decode(ids: List[int], merges: Dict[Tuple[int, int], int]) -> str:
+    vocab = {idx: bytes([idx]) for idx in range(256)}
+    # Sort merges by token ID to reconstruct in creation order
+    sorted_merges = sorted(merges.items(), key=lambda x: x[1])
+    for pair, idx in sorted_merges:
+        vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
+    
+    text_bytes = b"".join(vocab[idx] for idx in ids)
+    return text_bytes.decode("utf-8", errors="replace")
+
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    # Test 1: Basic BPE training on "abracadabra"
+    text = "abracadabra"
+    vocab_size = 260
+    
+    merges = train_bpe(text, vocab_size)
+    assert isinstance(merges, dict), f"Expected dict, got {type(merges)}"
+    assert len(merges) <= 4, f"Should have at most 4 merges, got {len(merges)}"
+
+    # Reference implementation
+    def _ref_train(t: str, vs: int) -> Dict[Tuple[int, int], int]:
+        ids = list(t.encode("utf-8"))
+        m = {}
+        for i in range(vs - 256):
+            stats = {}
+            for pair in zip(ids, ids[1:]):
+                stats[pair] = stats.get(pair, 0) + 1
+            if not stats:
+                break
+            best_pair = min(stats.keys(), key=lambda p: (-stats[p], p))
+            idx = 256 + i
+            newids = []
+            j = 0
+            while j < len(ids):
+                if j < len(ids) - 1 and ids[j] == best_pair[0] and ids[j+1] == best_pair[1]:
+                    newids.append(idx)
+                    j += 2
+                else:
+                    newids.append(ids[j])
+                    j += 1
+            ids = newids
+            m[best_pair] = idx
+        return m
+
+    ref_merges = _ref_train(text, vocab_size)
+    assert merges == ref_merges, f"Merges mismatch.\\\\nGot: {merges}\\\\nExpected: {ref_merges}"
+
+    # Test 2: Encoding & Tensor Type/Shape Check
+    encoded = encode_bpe(text, merges)
+    assert encoded is not None, "encode_bpe returned None"
+    assert isinstance(encoded, torch.Tensor), f"Expected torch.Tensor, got {type(encoded)}"
+    assert encoded.dtype == torch.long, f"Expected torch.long, got {encoded.dtype}"
+    assert len(encoded.shape) == 1, f"Expected 1D tensor, got {len(encoded.shape)}D"
+
+    # Verify vs Reference Encoder
+    def _ref_encode(t: str, m: Dict[Tuple[int, int], int]) -> List[int]:
+        ids = list(t.encode("utf-8"))
+        sorted_m = sorted(m.items(), key=lambda x: x[1])
+        for pair, idx in sorted_m:
+            newids = []
+            j = 0
+            while j < len(ids):
+                if j < len(ids) - 1 and ids[j] == pair[0] and ids[j+1] == pair[1]:
+                    newids.append(idx)
+                    j += 2
+                else:
+                    newids.append(ids[j])
+                    j += 1
+            ids = newids
+        return ids
+
+    ref_encoded = torch.tensor(_ref_encode(text, merges), dtype=torch.long)
+    assert torch.equal(encoded, ref_encoded), f"Encoded token IDs mismatch.\\\\nGot: {encoded.tolist()}\\\\nExpected: {ref_encoded.tolist()}"
+
+    # Test 3: Round-trip Decoding Invariant
+    decoded = _decode(encoded.tolist(), merges)
+    assert decoded == text, f"Round-trip decoding failed.\\\\nGot: '{decoded}'\\\\nExpected: '{text}'"
+
+    # Test 4: Edge Case (Short text with no merges possible)
+    short_text = "a"
+    short_merges = train_bpe(short_text, 300)
+    assert len(short_merges) == 0, f"Expected 0 merges for single-char text, got {len(short_merges)}"
+    short_encoded = encode_bpe(short_text, short_merges)
+    assert torch.equal(short_encoded, torch.tensor([97], dtype=torch.long)), f"Expected single token [97], got {short_encoded.tolist()}"
+
+    # Test 5: Wrong-implementation detector (ensure merges creation order is respected)
+    complex_text = "abracadabra abracadabra"
+    complex_merges = train_bpe(complex_text, 260)
+    complex_encoded = encode_bpe(complex_text, complex_merges)
+    complex_decoded = _decode(complex_encoded.tolist(), complex_merges)
+    assert complex_decoded == complex_text, "Failed to decode complex text (check BPE merge order application!)"
+
+    print("All tests passed!")
+    print(f"Output shape: {encoded.shape}")
+    print(f"Tokens: {encoded.tolist()}")
+`,
+  },
 ]
+
