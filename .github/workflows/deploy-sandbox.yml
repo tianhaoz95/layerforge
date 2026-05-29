@@ -24,15 +24,6 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Ensure Artifact Registry repository exists
-        run: |
-          gcloud artifacts repositories describe layerforge \
-            --location=us-central1 --quiet \
-          || gcloud artifacts repositories create layerforge \
-            --repository-format=docker \
-            --location=us-central1 \
-            --quiet
-
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
