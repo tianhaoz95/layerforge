@@ -1,4 +1,24 @@
 {
+  "hosting": [
+    {
+      "site": "layerforge-platform",
+      "public": "apps/home/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    },
+    {
+      "site": "layerforge-preview",
+      "public": "apps/preview/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    },
+    {
+      "site": "layerforge-study",
+      "public": "apps/study/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    }
+  ],
   "functions": [
     {
       "source": "services/functions",
