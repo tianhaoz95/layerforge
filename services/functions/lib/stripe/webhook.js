@@ -69,6 +69,16 @@ exports.stripeWebhook = (0, https_1.onRequest)({ secrets: [stripeSecretKey, stri
             return null;
         return customer.metadata?.firebaseUid ?? null;
     };
+    // Stripe 2026+ API returns timestamps as ISO strings; older versions used Unix ints.
+    // This helper normalises both to a Firestore Timestamp.
+    const toTimestamp = (value) => {
+        if (value === null || value === undefined)
+            return null;
+        const ms = typeof value === 'string' ? new Date(value).getTime() : value * 1000;
+        if (!Number.isFinite(ms))
+            return null;
+        return admin.firestore.Timestamp.fromMillis(ms);
+    };
     // Write subscription state to Firestore for a given subscription object.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const syncSubscription = async (sub) => {
@@ -83,11 +93,9 @@ exports.stripeWebhook = (0, https_1.onRequest)({ secrets: [stripeSecretKey, stri
                 id: sub['id'],
                 status: sub['status'],
                 priceId: sub['items']?.data?.[0]?.price?.id ?? null,
-                currentPeriodEnd: admin.firestore.Timestamp.fromMillis(sub['current_period_end'] * 1000),
+                currentPeriodEnd: toTimestamp(sub['current_period_end']),
                 cancelAtPeriodEnd: sub['cancel_at_period_end'],
-                trialEnd: sub['trial_end']
-                    ? admin.firestore.Timestamp.fromMillis(sub['trial_end'] * 1000)
-                    : null,
+                trialEnd: toTimestamp(sub['trial_end']),
             },
         }, { merge: true });
     };
