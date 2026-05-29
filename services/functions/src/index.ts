@@ -1,10 +1,11 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { GoogleAuth } from 'google-auth-library';
 
 admin.initializeApp();
 
 const CLOUD_RUN_SANDBOX_URL = 'https://sandbox-li4rwaueia-uc.a.run.app';
+const METADATA_TOKEN_URL =
+  'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity';
 
 interface RunCodeRequest {
   code: string;
@@ -18,6 +19,15 @@ interface ExecutionResult {
   executionTimeMs: number;
 }
 
+async function getIdentityToken(audience: string): Promise<string> {
+  const url = `${METADATA_TOKEN_URL}?audience=${encodeURIComponent(audience)}`;
+  const res = await fetch(url, { headers: { 'Metadata-Flavor': 'Google' } });
+  if (!res.ok) {
+    throw new Error(`Metadata server returned HTTP ${res.status} fetching identity token`);
+  }
+  return res.text();
+}
+
 async function callSandbox(
   baseUrl: string,
   code: string,
@@ -27,10 +37,8 @@ async function callSandbox(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
   if (useAuth) {
-    const auth = new GoogleAuth();
-    const client = await auth.getIdTokenClient(baseUrl);
-    const authHeaders = await client.getRequestHeaders();
-    Object.assign(headers, authHeaders);
+    const token = await getIdentityToken(baseUrl);
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const res = await fetch(`${baseUrl}/run`, {
@@ -40,8 +48,10 @@ async function callSandbox(
   });
 
   if (!res.ok) {
-    const errBody = await res.json().catch(() => ({})) as { message?: string };
-    throw new Error(errBody.message ?? `Sandbox error: HTTP ${res.status}`);
+    const body = await res.text();
+    const msg = `Sandbox returned HTTP ${res.status}: ${body}`;
+    console.error(msg);
+    throw new Error(msg);
   }
 
   return res.json() as Promise<ExecutionResult>;
@@ -72,9 +82,6 @@ export const runCode = functions.https.onCall(async (request) => {
   }
 
   const isEmulator = process.env.FUNCTIONS_EMULATOR === 'true';
-
-  // Emulator → local sandbox (no auth needed, plain HTTP)
-  // Production → Cloud Run (GCP identity token required)
   const sandboxUrl = isEmulator
     ? (process.env.SANDBOX_URL ?? 'http://127.0.0.1:3001')
     : (process.env.SANDBOX_URL ?? CLOUD_RUN_SANDBOX_URL);
@@ -83,6 +90,7 @@ export const runCode = functions.https.onCall(async (request) => {
     const result = await callSandbox(sandboxUrl, code, language, !isEmulator);
     return result;
   } catch (err) {
+    console.error('runCode error:', err);
     if (err instanceof functions.https.HttpsError) throw err;
     throw new functions.https.HttpsError(
       'unavailable',
