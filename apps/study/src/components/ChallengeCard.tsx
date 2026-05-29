@@ -15,9 +15,23 @@ const LANG_CLS = {
 interface Props {
   challenge: Challenge
   completed: boolean
+  lang?: 'en' | 'zh'
 }
 
-export function ChallengeCard({ challenge, completed }: Props) {
+export function ChallengeCard({ challenge, completed, lang = 'en' }: Props) {
+  const diffLabel = {
+    en: {
+      beginner: 'beginner',
+      intermediate: 'intermediate',
+      advanced: 'advanced',
+    },
+    zh: {
+      beginner: '初级',
+      intermediate: '中级',
+      advanced: '高级',
+    }
+  }[lang][challenge.difficulty]
+
   return (
     <Link
       to={`/challenge/${challenge.id}`}
@@ -36,7 +50,7 @@ export function ChallengeCard({ challenge, completed }: Props) {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${DIFFICULTY_CLS[challenge.difficulty]}`}>
-          {challenge.difficulty}
+          {diffLabel}
         </span>
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${LANG_CLS[challenge.language]}`}>
           {challenge.language}
@@ -45,3 +59,4 @@ export function ChallengeCard({ challenge, completed }: Props) {
     </Link>
   )
 }
+

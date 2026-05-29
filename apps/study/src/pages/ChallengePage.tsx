@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { challenges } from '../data/challenges'
@@ -8,6 +8,7 @@ import { ResultPanel } from '../components/ResultPanel'
 import { HintPanel } from '../components/HintPanel'
 import { DescriptionRenderer } from '../components/DescriptionRenderer'
 import type { ExecutionResult, SubmissionStatus } from '../types/challenge'
+import { getChallengeWithI18n } from '../data/translations'
 
 const DIFFICULTY_CLS = {
   beginner:     'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
@@ -17,7 +18,31 @@ const DIFFICULTY_CLS = {
 
 export function ChallengePage() {
   const { id } = useParams<{ id: string }>()
-  const challenge = challenges.find((c) => c.id === id)
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('lf-theme') as 'dark' | 'light') || 'dark'
+  })
+  const [lang, setLang] = useState<'en' | 'zh'>(() => {
+    return (localStorage.getItem('lf-lang') as 'en' | 'zh') || 'en'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('lf-theme', theme)
+    if (theme === 'light') {
+      document.documentElement.classList.add('light')
+      document.documentElement.classList.remove('dark')
+    } else {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+    }
+  }, [theme])
+
+  useEffect(() => {
+    localStorage.setItem('lf-lang', lang)
+  }, [lang])
+
+  const challengeBase = challenges.find((c) => c.id === id)
+  const challenge = challengeBase ? getChallengeWithI18n(challengeBase, lang) : undefined
 
   const { progress, markComplete, incrementAttempt } = useProgress()
   const isCompleted = progress[id ?? '']?.completed ?? false
@@ -27,16 +52,66 @@ export function ChallengePage() {
   const [result, setResult] = useState<ExecutionResult | null>(null)
   const [showHint, setShowHint] = useState(false)
 
+  // Sync code state if challenge changes or loads
+  useEffect(() => {
+    if (challenge) {
+      setCode(challenge.starterCode)
+    }
+  }, [id])
+
+  const t = {
+    en: {
+      completed: 'Completed',
+      hintsRemaining: 'hints remaining',
+      reset: 'Reset to starter',
+      reveal: 'Reveal Answer',
+      submit: 'Submit',
+      running: 'Running…',
+      notFound: 'Challenge not found',
+      back: '← Back to Dashboard',
+      beginner: 'beginner',
+      intermediate: 'intermediate',
+      advanced: 'advanced',
+    },
+    zh: {
+      completed: '已完成',
+      hintsRemaining: '次剩余提示',
+      reset: '重置代码',
+      reveal: '显示答案',
+      submit: '提交运行',
+      running: '运行中…',
+      notFound: '未找到该挑战',
+      back: '← 返回主面板',
+      beginner: '初级',
+      intermediate: '中级',
+      advanced: '高级',
+    }
+  }[lang]
+
   if (!challenge) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-400">
         <div className="text-center">
-          <p className="text-2xl font-bold text-gray-600 mb-3">Challenge not found</p>
-          <Link to="/" className="text-cyan-400 hover:underline text-sm">← Back to Dashboard</Link>
+          <p className="text-2xl font-bold text-gray-600 mb-3">{t.notFound}</p>
+          <Link to="/" className="text-cyan-400 hover:underline text-sm">{t.back}</Link>
         </div>
       </div>
     )
   }
+
+  const diffLabels: Record<'en' | 'zh', Record<'beginner' | 'intermediate' | 'advanced', string>> = {
+    en: {
+      beginner: 'beginner',
+      intermediate: 'intermediate',
+      advanced: 'advanced',
+    },
+    zh: {
+      beginner: '初级',
+      intermediate: '中级',
+      advanced: '高级',
+    }
+  }
+  const diffLabel = diffLabels[lang][challenge.difficulty]
 
   const handleSubmit = async () => {
     setStatus('running')
@@ -82,7 +157,7 @@ export function ChallengePage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-950 text-gray-100 overflow-hidden">
+    <div className="flex h-screen flex-col bg-gray-950 text-gray-100 overflow-hidden transition-colors duration-200">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
@@ -99,11 +174,27 @@ export function ChallengePage() {
           <div className="flex items-center gap-4">
             {isCompleted && (
               <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">
-                ✓ Completed
+                ✓ {t.completed}
               </span>
             )}
             {/* Phase 2: replace with real credit count from Firestore */}
-            <span className="text-xs text-gray-600">10/10 hints remaining</span>
+            <span className="text-xs text-gray-600 hidden sm:inline">10/10 {t.hintsRemaining}</span>
+
+            {/* Language Switcher */}
+            <button
+              onClick={() => setLang(l => l === 'en' ? 'zh' : 'en')}
+              className="text-xs font-semibold px-2 py-1 rounded bg-gray-900 border border-gray-800 hover:border-cyan-500/50 transition-colors font-mono text-cyan-400"
+            >
+              {lang === 'en' ? '中文' : 'EN'}
+            </button>
+            
+            {/* Theme Switcher */}
+            <button
+              onClick={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
+              className="text-xs px-2 py-1.5 rounded bg-gray-900 border border-gray-800 hover:border-cyan-500/50 transition-colors"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
           </div>
         </div>
       </header>
@@ -117,15 +208,15 @@ export function ChallengePage() {
 
             {/* Metadata badges */}
             <div className="mb-5 flex flex-wrap gap-2">
-              <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${DIFFICULTY_CLS[challenge.difficulty]}`}>
-                {challenge.difficulty}
+              <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${DIFFICULTY_CLS[challenge.difficulty as 'beginner' | 'intermediate' | 'advanced']}`}>
+                {diffLabel}
               </span>
               <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-0.5 text-xs font-medium text-blue-400">
                 {challenge.language}
               </span>
-              {challenge.tags.slice(0, 3).map((t) => (
-                <span key={t} className="rounded-full border border-gray-700 bg-gray-800 px-2.5 py-0.5 text-xs text-gray-400">
-                  {t}
+              {challenge.tags.slice(0, 3).map((tag: string) => (
+                <span key={tag} className="rounded-full border border-gray-700 bg-gray-800 px-2.5 py-0.5 text-xs text-gray-400">
+                  {tag}
                 </span>
               ))}
             </div>
@@ -149,7 +240,7 @@ export function ChallengePage() {
               language={challenge.language === 'python' ? 'python' : 'rust'}
               value={code}
               onChange={(v) => setCode(v ?? '')}
-              theme="vs-dark"
+              theme={theme === 'light' ? 'vs' : 'vs-dark'}
               options={{
                 minimap: { enabled: false },
                 fontSize: 13,
@@ -169,7 +260,7 @@ export function ChallengePage() {
                 onClick={handleReset}
                 className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
               >
-                Reset to starter
+                {t.reset}
               </button>
 
               {challenge.solutionCode && (
@@ -179,7 +270,7 @@ export function ChallengePage() {
                     onClick={handleRevealAnswer}
                     className="text-sm text-cyan-500 hover:text-cyan-400 font-medium transition-colors"
                   >
-                    Reveal Answer
+                    {t.reveal}
                   </button>
                 </>
               )}
@@ -190,7 +281,7 @@ export function ChallengePage() {
               disabled={status === 'running'}
               className="rounded-md bg-cyan-500 px-5 py-2 text-sm font-semibold text-gray-950 hover:bg-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              {status === 'running' ? 'Running…' : 'Submit'}
+              {status === 'running' ? t.running : t.submit}
             </button>
           </div>
 
@@ -201,8 +292,9 @@ export function ChallengePage() {
                 status={status}
                 result={result}
                 onGetHint={() => setShowHint(true)}
+                lang={lang}
               />
-              {showHint && <HintPanel hint={challenge.staticHint} />}
+              {showHint && <HintPanel hint={challenge.staticHint} lang={lang} />}
             </div>
           )}
         </div>

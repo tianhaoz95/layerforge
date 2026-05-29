@@ -28,3 +28,235 @@
   }
 }
 
+/* ☀️ Global Light Mode overrides */
+html.light {
+  color-scheme: light;
+}
+
+html.light,
+html.light body,
+html.light div.min-h-screen,
+html.light div.bg-gray-950,
+html.light div.flex {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light header,
+html.light footer,
+html.light section,
+html.light div.bg-gray-900,
+html.light div.bg-gray-900\/50,
+html.light div.bg-gray-950\/40,
+html.light div.bg-gray-950\/60,
+html.light div.bg-gray-950\/80,
+html.light div.bg-gray-900\/40,
+html.light div.border-gray-800,
+html.light div.border-gray-800\/80,
+html.light div.border-gray-850,
+html.light div.border-gray-900,
+html.light border-t {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light p,
+html.light span,
+html.light h1,
+html.light h2,
+html.light h3,
+html.light a {
+  color: #334155 !important;
+}
+
+html.light h1,
+html.light h2,
+html.light h3,
+html.light strong,
+html.light a.text-white,
+html.light span.text-white,
+html.light div.text-white {
+  color: #0f172a !important;
+}
+
+html.light p.text-gray-400,
+html.light span.text-gray-400,
+html.light span.text-gray-500,
+html.light div.text-gray-400,
+html.light div.text-gray-500 {
+  color: #475569 !important;
+}
+
+html.light a.text-cyan-400,
+html.light span.text-cyan-400,
+html.light button.text-cyan-400,
+html.light code.text-cyan-300,
+html.light code.text-purple-300,
+html.light span.text-cyan-300,
+html.light span.text-purple-400 {
+  color: #0284c7 !important; /* Premium Blue for light mode */
+}
+
+html.light button.bg-cyan-500\/10,
+html.light div.bg-cyan-500\/5 {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+}
+
+html.light input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Style buttons & switchers in Light Mode */
+html.light button.bg-gray-900,
+html.light button.bg-gray-800,
+html.light a.bg-gray-800 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light button.bg-gray-900:hover,
+html.light button.bg-gray-800:hover,
+html.light a.bg-gray-800:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+html.light button.text-cyan-400 {
+  color: #0284c7 !important;
+}
+
+/* Style challenge cards in Light Mode */
+html.light a.bg-gray-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light a.bg-gray-900:hover {
+  background-color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+html.light a.bg-gray-900 h3 {
+  color: #334155 !important;
+}
+
+html.light a.bg-gray-900:hover h3 {
+  color: #0f172a !important;
+}
+
+/* DescriptionRenderer Parsed Blocks overrides */
+html.light div.space-y-5.text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light div.bg-gradient-to-r.from-blue-950\/30 {
+  background-image: linear-gradient(to right, #ffffff, #ffffff) !important;
+  border-color: #bae6fd !important;
+  box-shadow: none !important;
+}
+
+html.light div.bg-gradient-to-r.from-blue-950\/30 code {
+  color: #0369a1 !important;
+}
+
+html.light .rounded-xl.border-slate-800\/80 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light tr.bg-slate-900\/60 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light th.text-cyan-400 {
+  color: #0369a1 !important;
+}
+
+html.light th.text-slate-400 {
+  color: #475569 !important;
+}
+
+html.light th.text-purple-400 {
+  color: #7c3aed !important;
+}
+
+html.light td.text-cyan-300\/90 {
+  color: #0284c7 !important;
+}
+
+html.light td.text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light span.bg-purple-950\/30 {
+  background-color: #ffffff !important;
+  border-color: #d8b4fe !important;
+  color: #7c3aed !important;
+}
+
+html.light tr.hover\:bg-slate-800\/10:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light div.bg-slate-900\/25,
+html.light .bg-slate-900\/25 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.bg-slate-900\/25:hover,
+html.light .bg-slate-900\/25:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light div.bg-purple-950\/40,
+html.light .bg-purple-950\/40 {
+  background-color: #ffffff !important;
+  border-color: #d8b4fe !important;
+  color: #7c3aed !important;
+}
+
+html.light div.border-emerald-950\/40,
+html.light .border-emerald-950\/40 {
+  background-color: #ffffff !important;
+  border-color: #bbf7d0 !important;
+}
+
+html.light h4.text-emerald-400\/90,
+html.light .text-emerald-400\/90 {
+  color: #15803d !important;
+}
+
+html.light p.text-slate-300,
+html.light span.text-slate-300,
+html.light li.text-slate-300,
+html.light div.text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light p.text-slate-300\/90,
+html.light .text-slate-300\/90 {
+  color: #334155 !important;
+}
+
+html.light div.bg-slate-900\/10,
+html.light .bg-slate-900\/10 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.bg-slate-950\/30,
+html.light .bg-slate-950\/30 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}

@@ -1,3 +1,235 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ☀️ Global Light Mode overrides */
+html.light {
+  color-scheme: light;
+}
+
+html.light,
+html.light body,
+html.light div.min-h-screen,
+html.light flex {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light header,
+html.light footer,
+html.light section,
+html.light div.bg-gray-900,
+html.light div.bg-gray-900\/50,
+html.light div.bg-gray-950,
+html.light div.bg-gray-950\/40,
+html.light div.bg-gray-950\/60,
+html.light div.bg-gray-950\/80,
+html.light div.bg-gray-900\/40,
+html.light div.border-gray-800,
+html.light div.border-gray-800\/80,
+html.light div.border-gray-850,
+html.light div.border-gray-900,
+html.light border-t {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light p,
+html.light span,
+html.light h1,
+html.light h2,
+html.light h3,
+html.light a {
+  color: #334155 !important;
+}
+
+html.light h1,
+html.light h2,
+html.light h3,
+html.light strong,
+html.light a.text-white,
+html.light span.text-white,
+html.light div.text-white {
+  color: #0f172a !important;
+}
+
+html.light p.text-gray-400,
+html.light span.text-gray-400,
+html.light span.text-gray-500,
+html.light div.text-gray-400,
+html.light div.text-gray-500 {
+  color: #475569 !important;
+}
+
+html.light a.text-cyan-400,
+html.light span.text-cyan-400,
+html.light button.text-cyan-400,
+html.light code.text-cyan-300,
+html.light code.text-purple-300,
+html.light span.text-cyan-300,
+html.light span.text-purple-400 {
+  color: #0284c7 !important; /* Premium Blue for light mode */
+}
+
+html.light button.bg-cyan-500\/10,
+html.light div.bg-cyan-500\/5 {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+}
+
+html.light input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Style buttons & switchers in Light Mode */
+html.light button.bg-gray-900,
+html.light button.bg-gray-800,
+html.light a.bg-gray-800 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light button.bg-gray-900:hover,
+html.light button.bg-gray-800:hover,
+html.light a.bg-gray-800:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+}
+
+html.light button.text-cyan-400 {
+  color: #0284c7 !important;
+}
+
+/* Premium Light Code Editor Workspace overrides */
+html.light pre,
+html.light pre.bg-gray-950\/40 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light pre code,
+html.light pre span {
+  color: #334155 !important;
+}
+
+html.light pre span.text-purple-400 {
+  color: #9333ea !important; /* Magenta/Purple keyword */
+}
+
+html.light pre span.text-cyan-300 {
+  color: #0369a1 !important; /* Blue function name */
+}
+
+html.light pre span.text-cyan-400 {
+  color: #0284c7 !important; /* Blue operator */
+}
+
+html.light pre span.text-orange-300 {
+  color: #b45309 !important; /* Amber literal */
+}
+
+html.light pre span.text-gray-500 {
+  color: #64748b !important; /* Gray comments */
+}
+
+/* Terminal & AI Socratic Hint Box overrides */
+html.light div.border-t.border-gray-800.bg-gray-900\/60,
+html.light .bg-gray-900\/60 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light span.text-red-400,
+html.light div.text-red-400 {
+  color: #b91c1c !important; /* Crimson error */
+}
+
+html.light span.text-gray-400 {
+  color: #334155 !important;
+}
+
+html.light button.bg-cyan-500\/10,
+html.light button.bg-cyan-500\/10:hover {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
+}
+
+html.light button.bg-cyan-500\/10:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #7dd3fc !important;
+}
+
+html.light div.border-cyan-500\/20 {
+  border-color: #bae6fd !important;
+}
+
+html.light div.text-cyan-300 {
+  color: #0369a1 !important;
+}
+
+html.light code.bg-cyan-950\/60,
+html.light .bg-cyan-950\/60 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* RoPE Rotation Playground overrides */
+html.light div.bg-gray-900\/50,
+html.light .bg-gray-900\/50 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.bg-gray-950\/40,
+html.light .bg-gray-950\/40 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light svg circle[stroke="#1f2937"] {
+  stroke: #cbd5e1 !important;
+}
+
+html.light svg line[stroke="#111827"] {
+  stroke: #e2e8f0 !important;
+}
+
+html.light svg circle[fill="#374151"] {
+  fill: #cbd5e1 !important;
+}
+
+html.light div.bg-gray-950,
+html.light .bg-gray-950 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html.light code.bg-gray-900,
+html.light .bg-gray-900 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #4f46e5 !important;
+}
+
+html.light div.bg-cyan-500\/5,
+html.light .bg-cyan-500\/5 {
+  background-color: #ffffff !important;
+  border-color: #bae6fd !important;
+}
+
+/* Hide background neon glows in Light Mode to maintain high text contrast */
+html.light .blur-\[120px\] {
+  display: none !important;
+}
+

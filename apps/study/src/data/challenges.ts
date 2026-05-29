@@ -1,5 +1,8 @@
 import type { Challenge } from '../types/challenge'
+import { Conv2dVisualization } from '../visualizations/Conv2dVisualization'
+import { GQAVisualization } from '../visualizations/GQAVisualization'
 import { PRoPEVisualization } from '../visualizations/PRoPEVisualization'
+import { SinusoidalVisualization } from '../visualizations/SinusoidalVisualization'
 
 export const challenges: Challenge[] = [
   {
@@ -1847,6 +1850,1102 @@ if __name__ == "__main__":
     print(f"Unaligned vector (N=983) successfully compiled and executed!")
     print(f"Sample output values (first 5 elements):")
     print(f"  {out2[:5]}")
+`,
+  },
+  {
+    id: 'sinusoidal-positional-encoding',
+    title: 'Sinusoidal Positional Encoding',
+    module: 'Positional Encoding',
+    difficulty: 'intermediate',
+    language: 'python',
+    tags: ['torch', 'positional encoding', 'transformer', 'sinusoidal'],
+    visualization: SinusoidalVisualization,
+    description: `Inject positional information into token representations. Since the Transformer architecture (Vaswani et al., "Attention Is All You Need", 2017) has no recurrence or convolution, it uses sinusoidal positional encodings to represent the absolute or relative positions of tokens in a sequence.
+
+The positional encodings are computed using sine and cosine functions of different frequencies:
+
+┌──────────────────────────────────────────────────────────────────┐
+│  PE_(pos, 2i)   = sin( pos / base^(2i / d_model) )               │
+│  PE_(pos, 2i+1) = cos( pos / base^(2i / d_model) )               │
+└──────────────────────────────────────────────────────────────────┘
+
+📋 Tensor Reference Table:
+  +------------+------------------------------------+---------------------+
+  | Tensor     | Description                        | Shape               |
+  +------------+------------------------------------+---------------------+
+  | positions  | token position indices             | (seq_len,)          |
+  | div_term   | frequency division factors         | (d_model/2,)        |
+  | PE         | output positional encoding matrix  | (seq_len, d_model)  |
+  +------------+------------------------------------+---------------------+
+
+An interactive, animated graphical heatmap and continuous wave plot is available in the visualizer above!
+
+Steps:
+  1. Compute frequency division factors: div_term = base^(-2i/d_model) for i = 0 ... d_model/2 - 1. Shape: (d_model/2,)
+  2. Compute angles: angles = positions[:, None] * div_term[None, :]. Shape: (seq_len, d_model/2)
+  3. Compute sine and cosine values of the angles: sin_vals = sin(angles) and cos_vals = cos(angles). Shape: (seq_len, d_model/2)
+  4. Interleave sines and cosines into the final PE matrix:
+     PE[..., 0::2] = sin_vals
+     PE[..., 1::2] = cos_vals
+     Shape: (seq_len, d_model)
+
+Requirements:
+  • Use only PyTorch tensors.
+  • Return a tensor of shape (seq_len, d_model).
+  • All calculations must support dynamic sequence length (seq_len) and embedding size (d_model).
+  • Ensure proper interleaving (even indices get sin, odd indices get cos).`,
+    staticHint: `Have you thought about how to generate the frequencies geometrically and then interleave the sin and cos values?
+
+Computing the division term \`div_term\` is the first key step:
+\`\`\`python
+half = d_model // 2
+i = torch.arange(half, dtype=torch.float32)
+div_term = base ** (-2.0 * i / d_model)
+\`\`\`
+
+Once you have your angles computed as a \`(seq_len, half)\` matrix, you can allocate a zero tensor of shape \`(seq_len, d_model)\`.
+To interleave sines and cosines, how can you use PyTorch's slicing syntax to target all even and odd columns?
+
+Hint: \`tensor[:, 0::2]\` targets every even column, and \`tensor[:, 1::2]\` targets every odd column. Give that a try!`,
+    starterCode: `import math
+import torch
+
+
+def sinusoidal_positional_encoding(
+    seq_len: int, d_model: int, base: float = 10000.0
+) -> torch.Tensor:
+    """
+    Compute sinusoidal positional encodings for a sequence.
+
+    PE_(pos, 2i)   = sin(pos / base^(2i/d_model))
+    PE_(pos, 2i+1) = cos(pos / base^(2i/d_model))
+
+    Args:
+        seq_len: Length of the sequence (number of tokens).
+        d_model: Dimensionality of the embeddings (must be even).
+        base: Frequency base factor (default 10000.0).
+
+    Returns:
+        A tensor of shape (seq_len, d_model) containing the positional encodings.
+    """
+    # YOUR CODE HERE
+    pass
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    # Test 1: Standard shape and type check
+    seq_len, d_model = 10, 16
+    out = sinusoidal_positional_encoding(seq_len, d_model)
+    
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (seq_len, d_model), f"Shape wrong: expected ({seq_len}, {d_model}), got {out.shape}"
+    assert out.dtype == torch.float32, f"Expected float32, got {out.dtype}"
+
+    # Reference implementation
+    def _ref(seq_len: int, d_model: int, base: float = 10000.0) -> torch.Tensor:
+        pe = torch.zeros(seq_len, d_model)
+        position = torch.arange(seq_len, dtype=torch.float32).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2, dtype=torch.float32) * (-math.log(base) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        return pe
+
+    expected = _ref(seq_len, d_model)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch with reference.\\nMax diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # Test 2: Edge/boundary case (smallest valid configuration)
+    out_edge = sinusoidal_positional_encoding(1, 2)
+    expected_edge = _ref(1, 2)
+    assert out_edge.shape == (1, 2), f"Edge shape wrong: {out_edge.shape}"
+    assert torch.allclose(out_edge, expected_edge, atol=1e-6), "Numerical mismatch for single token / small embedding"
+
+    # Test 3: Trigonometric Invariant Check (sin^2 + cos^2 = 1)
+    even_dims = out[:, 0::2]
+    odd_dims = out[:, 1::2]
+    identity_sum = even_dims ** 2 + odd_dims ** 2
+    expected_ones = torch.ones_like(identity_sum)
+    assert torch.allclose(identity_sum, expected_ones, atol=1e-6), (
+        f"Trigonometric identity sin^2 + cos^2 = 1.0 violated.\\nMax drift: {torch.max(torch.abs(identity_sum - 1.0)):.2e}"
+    )
+
+    # Test 4: Wrong-implementation detector (different base)
+    out_base = sinusoidal_positional_encoding(seq_len, d_model, base=5000.0)
+    assert not torch.allclose(out, out_base), (
+        "Output did not change when the frequency base was changed — are you using the base argument?"
+    )
+
+    # Test 5: Wrong-implementation detector (ignoring position index)
+    assert not torch.allclose(out[0], out[1]), (
+        "Positional encodings for position 0 and 1 are identical — are you using the position indices?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Position 0 even/odd sum of squares: {identity_sum[0, 0].item():.4f} (should be 1.0)")
+`,
+    solutionCode: `import math
+import torch
+
+
+def sinusoidal_positional_encoding(
+    seq_len: int, d_model: int, base: float = 10000.0
+) -> torch.Tensor:
+    """
+    Compute sinusoidal positional encodings for a sequence.
+
+    PE_(pos, 2i)   = sin(pos / base^(2i/d_model))
+    PE_(pos, 2i+1) = cos(pos / base^(2i/d_model))
+
+    Args:
+        seq_len: Length of the sequence (number of tokens).
+        d_model: Dimensionality of the embeddings (must be even).
+        base: Frequency base factor (default 10000.0).
+
+    Returns:
+        A tensor of shape (seq_len, d_model) containing the positional encodings.
+    """
+    half = d_model // 2
+    i = torch.arange(half, dtype=torch.float32)
+    div_term = base ** (-2.0 * i / d_model)
+    
+    positions = torch.arange(seq_len, dtype=torch.float32)
+    angles = positions.unsqueeze(1) * div_term.unsqueeze(0)
+    
+    pe = torch.zeros(seq_len, d_model, dtype=torch.float32)
+    pe[:, 0::2] = torch.sin(angles)
+    pe[:, 1::2] = torch.cos(angles)
+    return pe
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    # Test 1: Standard shape and type check
+    seq_len, d_model = 10, 16
+    out = sinusoidal_positional_encoding(seq_len, d_model)
+    
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (seq_len, d_model), f"Shape wrong: expected ({seq_len}, {d_model}), got {out.shape}"
+    assert out.dtype == torch.float32, f"Expected float32, got {out.dtype}"
+
+    # Reference implementation
+    def _ref(seq_len: int, d_model: int, base: float = 10000.0) -> torch.Tensor:
+        pe = torch.zeros(seq_len, d_model)
+        position = torch.arange(seq_len, dtype=torch.float32).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2, dtype=torch.float32) * (-math.log(base) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        return pe
+
+    expected = _ref(seq_len, d_model)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch with reference.\\nMax diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # Test 2: Edge/boundary case (smallest valid configuration)
+    out_edge = sinusoidal_positional_encoding(1, 2)
+    expected_edge = _ref(1, 2)
+    assert out_edge.shape == (1, 2), f"Edge shape wrong: {out_edge.shape}"
+    assert torch.allclose(out_edge, expected_edge, atol=1e-6), "Numerical mismatch for single token / small embedding"
+
+    # Test 3: Trigonometric Invariant Check (sin^2 + cos^2 = 1)
+    even_dims = out[:, 0::2]
+    odd_dims = out[:, 1::2]
+    identity_sum = even_dims ** 2 + odd_dims ** 2
+    expected_ones = torch.ones_like(identity_sum)
+    assert torch.allclose(identity_sum, expected_ones, atol=1e-6), (
+        f"Trigonometric identity sin^2 + cos^2 = 1.0 violated.\\nMax drift: {torch.max(torch.abs(identity_sum - 1.0)):.2e}"
+    )
+
+    # Test 4: Wrong-implementation detector (different base)
+    out_base = sinusoidal_positional_encoding(seq_len, d_model, base=5000.0)
+    assert not torch.allclose(out, out_base), (
+        "Output did not change when the frequency base was changed — are you using the base argument?"
+    )
+
+    # Test 5: Wrong-implementation detector (ignoring position index)
+    assert not torch.allclose(out[0], out[1]), (
+        "Positional encodings for position 0 and 1 are identical — are you using the position indices?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Position 0 even/odd sum of squares: {identity_sum[0, 0].item():.4f} (should be 1.0)")
+`,
+  },
+  {
+    id: 'grouped-query-attention',
+    title: 'Grouped-Query Attention (GQA)',
+    module: 'Transformer Layers',
+    difficulty: 'advanced',
+    language: 'python',
+    tags: ['torch', 'attention', 'transformer', 'gqa', 'multi-head', 'kv-cache'],
+    visualization: GQAVisualization,
+    description: `Implement Grouped-Query Attention (GQA), the attention variant used by LLaMA 2, Mistral, Qwen, and Gemma that cuts KV-cache memory by sharing key–value heads across groups of query heads (Ainslie et al., "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints", 2023).
+
+GQA generalises MHA (G = H, no sharing) and MQA (G = 1, maximum sharing): H query heads are split into G groups, and every query head in a group attends to the same single shared K/V head:
+
+┌────────────────────────────────────────────────────────────────────────┐
+│  For each group g  (query heads g·(H/G) … (g+1)·(H/G) − 1):           │
+│    output_g  =  softmax( Q_g @ K_g^T / √d_head )  @  V_g               │
+└────────────────────────────────────────────────────────────────────────┘
+
+📋 Tensor Reference Table:
+  +---------------+---------------------------------------------+-------------------------+
+  | Tensor        | Description                                 | Shape                   |
+  +---------------+---------------------------------------------+-------------------------+
+  | Q             | Query tensor — H query heads                | (B, S, H, d_head)       |
+  | K             | Key tensor — G KV heads (G ≤ H)             | (B, S, G, d_head)       |
+  | V             | Value tensor — G KV heads                   | (B, S, G, d_head)       |
+  | groups        | Query heads per KV head  =  H // G          | scalar                  |
+  | K_expanded    | K after repeat_interleave along head dim    | (B, S, H, d_head)       |
+  | V_expanded    | V after repeat_interleave along head dim    | (B, S, H, d_head)       |
+  | scores        | Scaled attention scores per head            | (B, H, S, S)            |
+  | weights       | Softmax attention weights per head          | (B, H, S, S)            |
+  | output        | Context vectors, all query heads            | (B, S, H, d_head)       |
+  +---------------+---------------------------------------------+-------------------------+
+
+(B = batch, S = seq_len, H = num_q_heads, G = num_kv_heads)
+
+An interactive animated grouping diagram is in the visualizer above — use the G buttons to see how query heads tile over KV heads and how the repeat_interleave factor changes.
+
+Steps:
+  1. Compute groups = H // G  (requires H % G == 0).
+  2. Expand K and V to all H heads: K_exp = K.repeat_interleave(groups, dim=2)  →  (B, S, H, d_head).
+  3. Permute all tensors to head-first: Q.permute(0, 2, 1, 3)  →  (B, H, S, d_head); same for K_exp and V_exp.
+  4. Compute scaled scores: Q_h @ K_h.transpose(-2, -1) / sqrt(d_head)  →  (B, H, S, S).
+  5. Apply row-wise softmax across the last dimension  →  attention weights  (B, H, S, S).
+  6. Weighted sum: weights @ V_h  →  (B, H, S, d_head).
+  7. Permute back to token-first: .permute(0, 2, 1, 3)  →  (B, S, H, d_head).
+
+Requirements:
+  • Use only PyTorch. No einops or other third-party libraries.
+  • H must be divisible by G; guaranteed by the test harness.
+  • Output shape: (batch, seq_len, num_q_heads, head_dim).
+  • The provided softmax is numerically stable — use it, do not reimplement it.`,
+
+    staticHint: `The key insight you need: before computing attention, expand K and V so they match the number of query heads.
+
+Here is the expansion step:
+
+  groups = num_q_heads // num_kv_heads   # e.g. 4 when H=8, G=2
+  K_exp = K.repeat_interleave(groups, dim=2)
+  # K[:, :, 0, :] is now replicated to head positions 0, 1, 2, 3
+  # K[:, :, 1, :] is now replicated to head positions 4, 5, 6, 7
+
+After that, K_exp has shape (B, S, H, d_head) — matching Q exactly. Now you can run standard batched scaled dot-product attention.
+
+A common mistake: forgetting to permute from (B, S, H, d) to (B, H, S, d) before the matmul. Why does @ need the heads-first layout to broadcast correctly over the batch and head dimensions?`,
+
+    starterCode: `import torch
+import torch.nn.functional as F
+
+
+def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """Numerically stable softmax. Provided — do not modify."""
+    x_max = torch.max(x, dim=dim, keepdim=True).values
+    e_x = torch.exp(x - x_max)
+    return e_x / torch.sum(e_x, dim=dim, keepdim=True)
+
+
+def grouped_query_attention(
+    Q: torch.Tensor,
+    K: torch.Tensor,
+    V: torch.Tensor,
+    num_kv_heads: int,
+) -> torch.Tensor:
+    """
+    Grouped-Query Attention (GQA).
+
+    Divides H query heads into G groups; each group attends to one shared K/V head.
+    G == H recovers standard MHA; G == 1 recovers MQA.
+
+    Args:
+        Q:            Query tensor of shape  (batch, seq_len, num_q_heads, head_dim).
+        K:            Key tensor of shape    (batch, seq_len, num_kv_heads, head_dim).
+        V:            Value tensor of shape  (batch, seq_len, num_kv_heads, head_dim).
+        num_kv_heads: Number of KV heads G.  Must divide num_q_heads evenly.
+
+    Returns:
+        Output tensor of shape (batch, seq_len, num_q_heads, head_dim).
+    """
+    # YOUR CODE HERE
+    pass
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(13)
+
+    batch, seq_len, num_q_heads, num_kv_heads, head_dim = 2, 6, 8, 2, 8
+
+    Q = torch.randn(batch, seq_len, num_q_heads, head_dim)
+    K = torch.randn(batch, seq_len, num_kv_heads, head_dim)
+    V = torch.randn(batch, seq_len, num_kv_heads, head_dim)
+
+    out = grouped_query_attention(Q, K, V, num_kv_heads)
+
+    # ── Test 1: type and shape ─────────────────────────────────────────────────
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (batch, seq_len, num_q_heads, head_dim), (
+        f"Shape wrong: expected ({batch}, {seq_len}, {num_q_heads}, {head_dim}), got {out.shape}"
+    )
+
+    # ── Test 2: numerical match vs reference implementation ────────────────────
+    def _ref(Q, K, V, num_kv_heads):
+        _, _, num_q_h, head_dim = Q.shape
+        groups = num_q_h // num_kv_heads
+        K_exp = K.repeat_interleave(groups, dim=2)
+        V_exp = V.repeat_interleave(groups, dim=2)
+        Q_h = Q.permute(0, 2, 1, 3)
+        K_h = K_exp.permute(0, 2, 1, 3)
+        V_h = V_exp.permute(0, 2, 1, 3)
+        scores = Q_h @ K_h.transpose(-2, -1) / (head_dim ** 0.5)
+        s_max = scores.max(dim=-1, keepdim=True).values
+        w = torch.exp(scores - s_max)
+        w = w / w.sum(dim=-1, keepdim=True)
+        return (w @ V_h).permute(0, 2, 1, 3)
+
+    expected = _ref(Q, K, V, num_kv_heads)
+    assert torch.allclose(out, expected, atol=1e-5), (
+        f"Numerical mismatch vs reference. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 3: F.scaled_dot_product_attention parity (built-in check) ─────────
+    _g = num_q_heads // num_kv_heads
+    _Ke = K.repeat_interleave(_g, dim=2).permute(0, 2, 1, 3)
+    _Ve = V.repeat_interleave(_g, dim=2).permute(0, 2, 1, 3)
+    _Qh = Q.permute(0, 2, 1, 3)
+    expected_builtin = F.scaled_dot_product_attention(_Qh, _Ke, _Ve).permute(0, 2, 1, 3)
+    assert torch.allclose(out, expected_builtin, atol=1e-4), (
+        f"Mismatch vs F.scaled_dot_product_attention. Max diff: {torch.max(torch.abs(out - expected_builtin)):.2e}"
+    )
+
+    # ── Test 4: MQA case (G=1) matches reference ──────────────────────────────
+    torch.manual_seed(37)
+    K_one = torch.randn(batch, seq_len, 1, head_dim)
+    V_one = torch.randn(batch, seq_len, 1, head_dim)
+    out_mqa = grouped_query_attention(Q, K_one, V_one, num_kv_heads=1)
+    assert out_mqa.shape == (batch, seq_len, num_q_heads, head_dim), (
+        f"MQA output shape wrong: {out_mqa.shape}"
+    )
+    assert torch.allclose(out_mqa, _ref(Q, K_one, V_one, 1), atol=1e-5), (
+        "GQA with num_kv_heads=1 (MQA) does not match reference"
+    )
+
+    # ── Test 5: MHA case (G=H) matches reference ──────────────────────────────
+    torch.manual_seed(51)
+    K_mha = torch.randn(batch, seq_len, num_q_heads, head_dim)
+    V_mha = torch.randn(batch, seq_len, num_q_heads, head_dim)
+    out_mha = grouped_query_attention(Q, K_mha, V_mha, num_kv_heads=num_q_heads)
+    assert torch.allclose(out_mha, _ref(Q, K_mha, V_mha, num_q_heads), atol=1e-5), (
+        "GQA with num_kv_heads=num_q_heads (MHA) does not match reference"
+    )
+
+    # ── Test 6: wrong-implementation detector — must use K ────────────────────
+    torch.manual_seed(99)
+    K_alt = torch.randn_like(K)
+    out_alt = grouped_query_attention(Q, K_alt, V, num_kv_heads)
+    assert not torch.allclose(out, out_alt, atol=1e-4), (
+        "Output did not change when K was replaced — are you attending to K?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape:          {out.shape}")
+    print(f"Max diff vs reference: {torch.max(torch.abs(out - expected)):.2e}  (should be ~0)")
+    print(f"MQA / MHA shapes:      {out_mqa.shape}  /  {out_mha.shape}")
+`,
+    solutionCode: `import torch
+import torch.nn.functional as F
+
+
+def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """Numerically stable softmax. Provided — do not modify."""
+    x_max = torch.max(x, dim=dim, keepdim=True).values
+    e_x = torch.exp(x - x_max)
+    return e_x / torch.sum(e_x, dim=dim, keepdim=True)
+
+
+def grouped_query_attention(
+    Q: torch.Tensor,
+    K: torch.Tensor,
+    V: torch.Tensor,
+    num_kv_heads: int,
+) -> torch.Tensor:
+    """
+    Grouped-Query Attention (GQA).
+
+    Divides H query heads into G groups; each group attends to one shared K/V head.
+    G == H recovers standard MHA; G == 1 recovers MQA.
+
+    Args:
+        Q:            Query tensor of shape  (batch, seq_len, num_q_heads, head_dim).
+        K:            Key tensor of shape    (batch, seq_len, num_kv_heads, head_dim).
+        V:            Value tensor of shape  (batch, seq_len, num_kv_heads, head_dim).
+        num_kv_heads: Number of KV heads G.  Must divide num_q_heads evenly.
+
+    Returns:
+        Output tensor of shape (batch, seq_len, num_q_heads, head_dim).
+    """
+    _, _, num_q_heads, head_dim = Q.shape
+    groups = num_q_heads // num_kv_heads
+    K_exp = K.repeat_interleave(groups, dim=2)
+    V_exp = V.repeat_interleave(groups, dim=2)
+    Q_h = Q.permute(0, 2, 1, 3)
+    K_h = K_exp.permute(0, 2, 1, 3)
+    V_h = V_exp.permute(0, 2, 1, 3)
+    scores = Q_h @ K_h.transpose(-2, -1) / (head_dim ** 0.5)
+    weights = softmax(scores, dim=-1)
+    out = weights @ V_h
+    return out.permute(0, 2, 1, 3)
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(13)
+
+    batch, seq_len, num_q_heads, num_kv_heads, head_dim = 2, 6, 8, 2, 8
+
+    Q = torch.randn(batch, seq_len, num_q_heads, head_dim)
+    K = torch.randn(batch, seq_len, num_kv_heads, head_dim)
+    V = torch.randn(batch, seq_len, num_kv_heads, head_dim)
+
+    out = grouped_query_attention(Q, K, V, num_kv_heads)
+
+    # ── Test 1: type and shape ─────────────────────────────────────────────────
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (batch, seq_len, num_q_heads, head_dim), (
+        f"Shape wrong: expected ({batch}, {seq_len}, {num_q_heads}, {head_dim}), got {out.shape}"
+    )
+
+    # ── Test 2: numerical match vs reference implementation ────────────────────
+    def _ref(Q, K, V, num_kv_heads):
+        _, _, num_q_h, head_dim = Q.shape
+        groups = num_q_h // num_kv_heads
+        K_exp = K.repeat_interleave(groups, dim=2)
+        V_exp = V.repeat_interleave(groups, dim=2)
+        Q_h = Q.permute(0, 2, 1, 3)
+        K_h = K_exp.permute(0, 2, 1, 3)
+        V_h = V_exp.permute(0, 2, 1, 3)
+        scores = Q_h @ K_h.transpose(-2, -1) / (head_dim ** 0.5)
+        s_max = scores.max(dim=-1, keepdim=True).values
+        w = torch.exp(scores - s_max)
+        w = w / w.sum(dim=-1, keepdim=True)
+        return (w @ V_h).permute(0, 2, 1, 3)
+
+    expected = _ref(Q, K, V, num_kv_heads)
+    assert torch.allclose(out, expected, atol=1e-5), (
+        f"Numerical mismatch vs reference. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 3: F.scaled_dot_product_attention parity (built-in check) ─────────
+    _g = num_q_heads // num_kv_heads
+    _Ke = K.repeat_interleave(_g, dim=2).permute(0, 2, 1, 3)
+    _Ve = V.repeat_interleave(_g, dim=2).permute(0, 2, 1, 3)
+    _Qh = Q.permute(0, 2, 1, 3)
+    expected_builtin = F.scaled_dot_product_attention(_Qh, _Ke, _Ve).permute(0, 2, 1, 3)
+    assert torch.allclose(out, expected_builtin, atol=1e-4), (
+        f"Mismatch vs F.scaled_dot_product_attention. Max diff: {torch.max(torch.abs(out - expected_builtin)):.2e}"
+    )
+
+    # ── Test 4: MQA case (G=1) matches reference ──────────────────────────────
+    torch.manual_seed(37)
+    K_one = torch.randn(batch, seq_len, 1, head_dim)
+    V_one = torch.randn(batch, seq_len, 1, head_dim)
+    out_mqa = grouped_query_attention(Q, K_one, V_one, num_kv_heads=1)
+    assert out_mqa.shape == (batch, seq_len, num_q_heads, head_dim), (
+        f"MQA output shape wrong: {out_mqa.shape}"
+    )
+    assert torch.allclose(out_mqa, _ref(Q, K_one, V_one, 1), atol=1e-5), (
+        "GQA with num_kv_heads=1 (MQA) does not match reference"
+    )
+
+    # ── Test 5: MHA case (G=H) matches reference ──────────────────────────────
+    torch.manual_seed(51)
+    K_mha = torch.randn(batch, seq_len, num_q_heads, head_dim)
+    V_mha = torch.randn(batch, seq_len, num_q_heads, head_dim)
+    out_mha = grouped_query_attention(Q, K_mha, V_mha, num_kv_heads=num_q_heads)
+    assert torch.allclose(out_mha, _ref(Q, K_mha, V_mha, num_q_heads), atol=1e-5), (
+        "GQA with num_kv_heads=num_q_heads (MHA) does not match reference"
+    )
+
+    # ── Test 6: wrong-implementation detector — must use K ────────────────────
+    torch.manual_seed(99)
+    K_alt = torch.randn_like(K)
+    out_alt = grouped_query_attention(Q, K_alt, V, num_kv_heads)
+    assert not torch.allclose(out, out_alt, atol=1e-4), (
+        "Output did not change when K was replaced — are you attending to K?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape:          {out.shape}")
+    print(f"Max diff vs reference: {torch.max(torch.abs(out - expected)):.2e}  (should be ~0)")
+    print(f"MQA / MHA shapes:      {out_mqa.shape}  /  {out_mha.shape}")
+`,
+  },
+  {
+    id: 'swiglu-ffn',
+    title: 'SwiGLU Feed-Forward Network',
+    module: 'Transformer Layers',
+    difficulty: 'intermediate',
+    language: 'python',
+    tags: ['torch', 'activation function', 'feed-forward', 'gating', 'transformer'],
+    description: `SwiGLU is the feed-forward activation powering LLaMA, PaLM, Mistral, and Gemma — it replaces the original ReLU FFN from "Attention Is All You Need" with a gated structure that learns which features to suppress at each token position (Shazeer, "GLU Variants Improve Transformer", 2020).
+
+The core insight: two independent linear projections of the input are computed — a "gate" branch and an "up" branch. The gate is squashed through the Swish/SiLU activation (a smooth, self-gated non-linearity), then element-wise multiplied with the unactivated up branch. This multiplicative gating lets each neuron selectively amplify or suppress information before the final down-projection back to d_model.
+
+┌────────────────────────────────────────────────────────────────────────┐
+│  SwiGLU(x)  =  ( SiLU(x @ W_gate) ⊙ (x @ W_up) ) @ W_down             │
+│  where  SiLU(z) = z · σ(z)  =  z / (1 + exp(−z))                       │
+└────────────────────────────────────────────────────────────────────────┘
+
+📋 Tensor Reference Table:
+  +----------+----------------------------------+---------------------+
+  | Tensor   | Description                      | Shape               |
+  +----------+----------------------------------+---------------------+
+  | x        | input token embeddings           | (batch, d_model)    |
+  | W_gate   | gate projection weight           | (d_model, d_hidden) |
+  | W_up     | up projection weight             | (d_model, d_hidden) |
+  | W_down   | down projection weight           | (d_hidden, d_model) |
+  | gate     | pre-activation gate values       | (batch, d_hidden)   |
+  | up       | unactivated up projection        | (batch, d_hidden)   |
+  | hidden   | SiLU(gate) ⊙ up                 | (batch, d_hidden)   |
+  | output   | final result                     | (batch, d_model)    |
+  +----------+----------------------------------+---------------------+
+
+  x (batch, d_model)
+    ├──→ @ W_gate ──→ SiLU(·) ──┐
+    │                            ⊙ ──→ hidden ──→ @ W_down ──→ output
+    └──→ @ W_up  ───────────────┘
+                              (batch, d_hidden)        (batch, d_model)
+
+Steps:
+  1. Compute gate = x @ W_gate                → shape (batch, d_hidden)
+  2. Compute up   = x @ W_up                 → shape (batch, d_hidden)
+  3. Apply gating: hidden = silu(gate) ⊙ up  → shape (batch, d_hidden)  [element-wise ×]
+  4. Down-project: output = hidden @ W_down  → shape (batch, d_model)
+
+Requirements:
+  • Use only PyTorch (torch and torch.nn.functional).
+  • silu is provided — call it, do not reimplement it.
+  • Output shape must be (batch_size, d_model) matching the input.
+  • Both W_gate and W_up must be used as independent projections.`,
+
+    staticHint: `Think of the data flow as a fork-then-merge: x is projected twice independently before the results are combined.
+
+The gate branch:
+  gate  = x @ W_gate   # (batch, d_hidden) — will be squashed by SiLU
+  gated = silu(gate)   # SiLU(z) = z * sigmoid(z) — smooth, allows negative pass-through
+
+The up branch needs no activation — it is a plain linear projection:
+  up = x @ W_up        # (batch, d_hidden)
+
+How do you combine two tensors of the same shape element-wise in PyTorch?
+Both gated and up are (batch, d_hidden), so the ⊙ symbol means exactly what you think.
+
+After combining, there is one more step before you have the final output.
+What shape does hidden have, and which weight gets you back to (batch, d_model)?`,
+
+    starterCode: `import torch
+import torch.nn.functional as F
+
+
+# ── Provided helper (do not modify) ───────────────────────────────────────────
+
+def silu(x: torch.Tensor) -> torch.Tensor:
+    """Swish / SiLU activation: silu(x) = x * sigmoid(x). Provided — do not modify."""
+    return x * torch.sigmoid(x)
+
+
+def swiglu_ffn(
+    x: torch.Tensor,
+    W_gate: torch.Tensor,
+    W_up: torch.Tensor,
+    W_down: torch.Tensor,
+) -> torch.Tensor:
+    """
+    SwiGLU feed-forward block.
+
+    SwiGLU(x) = ( SiLU(x @ W_gate) ⊙ (x @ W_up) ) @ W_down
+
+    Args:
+        x:      Input tensor of shape (batch_size, d_model).
+        W_gate: Gate projection weight of shape (d_model, d_hidden).
+        W_up:   Up projection weight of shape (d_model, d_hidden).
+        W_down: Down projection weight of shape (d_hidden, d_model).
+
+    Returns:
+        Output tensor of shape (batch_size, d_model).
+    """
+    # YOUR CODE HERE
+    pass
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    batch_size, d_model, d_hidden = 4, 16, 32
+
+    x      = torch.randn(batch_size, d_model)
+    W_gate = torch.randn(d_model, d_hidden)
+    W_up   = torch.randn(d_model, d_hidden)
+    W_down = torch.randn(d_hidden, d_model)
+
+    out = swiglu_ffn(x, W_gate, W_up, W_down)
+
+    # ── Test 1: type and shape ─────────────────────────────────────────────────
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (batch_size, d_model), (
+        f"Shape wrong: expected ({batch_size}, {d_model}), got {out.shape}"
+    )
+
+    # Reference implementation (uses F.silu — PyTorch built-in SiLU as parity check)
+    def _ref(x, W_gate, W_up, W_down):
+        return (F.silu(x @ W_gate) * (x @ W_up)) @ W_down
+
+    expected = _ref(x, W_gate, W_up, W_down)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch vs reference. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 2: zero input produces zero output ────────────────────────────────
+    x_zero   = torch.zeros(batch_size, d_model)
+    out_zero = swiglu_ffn(x_zero, W_gate, W_up, W_down)
+    assert torch.allclose(out_zero, torch.zeros(batch_size, d_model), atol=1e-6), (
+        "Zero input should produce zero output — both projections should multiply through x"
+    )
+
+    # ── Test 3: single-token batch (edge case) ─────────────────────────────────
+    x_single   = torch.randn(1, d_model)
+    out_single = swiglu_ffn(x_single, W_gate, W_up, W_down)
+    assert out_single.shape == (1, d_model), (
+        f"Single-token shape wrong: expected (1, {d_model}), got {out_single.shape}"
+    )
+
+    # ── Test 4: W_gate must be used (wrong-implementation detector) ────────────
+    W_gate_alt = torch.randn(d_model, d_hidden)
+    out_alt    = swiglu_ffn(x, W_gate_alt, W_up, W_down)
+    assert not torch.allclose(out, out_alt), (
+        "Output did not change when W_gate was replaced — are you using W_gate to compute the gate?"
+    )
+
+    # ── Test 5: W_up must be used as an independent projection ─────────────────
+    W_up_alt   = torch.randn(d_model, d_hidden)
+    out_up_alt = swiglu_ffn(x, W_gate, W_up_alt, W_down)
+    assert not torch.allclose(out, out_up_alt), (
+        "Output did not change when W_up was replaced — are you using W_up as a separate projection from W_gate?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Max absolute output value: {out.abs().max():.4f}")
+    print(f"Mean SiLU gate activation: {F.silu(x @ W_gate).mean():.4f}")
+`,
+
+    solutionCode: `import torch
+import torch.nn.functional as F
+
+
+# ── Provided helper (do not modify) ───────────────────────────────────────────
+
+def silu(x: torch.Tensor) -> torch.Tensor:
+    """Swish / SiLU activation: silu(x) = x * sigmoid(x). Provided — do not modify."""
+    return x * torch.sigmoid(x)
+
+
+def swiglu_ffn(
+    x: torch.Tensor,
+    W_gate: torch.Tensor,
+    W_up: torch.Tensor,
+    W_down: torch.Tensor,
+) -> torch.Tensor:
+    """
+    SwiGLU feed-forward block.
+
+    SwiGLU(x) = ( SiLU(x @ W_gate) ⊙ (x @ W_up) ) @ W_down
+
+    Args:
+        x:      Input tensor of shape (batch_size, d_model).
+        W_gate: Gate projection weight of shape (d_model, d_hidden).
+        W_up:   Up projection weight of shape (d_model, d_hidden).
+        W_down: Down projection weight of shape (d_hidden, d_model).
+
+    Returns:
+        Output tensor of shape (batch_size, d_model).
+    """
+    gate   = x @ W_gate
+    up     = x @ W_up
+    hidden = silu(gate) * up
+    return hidden @ W_down
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(42)
+
+    batch_size, d_model, d_hidden = 4, 16, 32
+
+    x      = torch.randn(batch_size, d_model)
+    W_gate = torch.randn(d_model, d_hidden)
+    W_up   = torch.randn(d_model, d_hidden)
+    W_down = torch.randn(d_hidden, d_model)
+
+    out = swiglu_ffn(x, W_gate, W_up, W_down)
+
+    # ── Test 1: type and shape ─────────────────────────────────────────────────
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    assert out.shape == (batch_size, d_model), (
+        f"Shape wrong: expected ({batch_size}, {d_model}), got {out.shape}"
+    )
+
+    # Reference implementation (uses F.silu — PyTorch built-in SiLU as parity check)
+    def _ref(x, W_gate, W_up, W_down):
+        return (F.silu(x @ W_gate) * (x @ W_up)) @ W_down
+
+    expected = _ref(x, W_gate, W_up, W_down)
+    assert torch.allclose(out, expected, atol=1e-6), (
+        f"Numerical mismatch vs reference. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 2: zero input produces zero output ────────────────────────────────
+    x_zero   = torch.zeros(batch_size, d_model)
+    out_zero = swiglu_ffn(x_zero, W_gate, W_up, W_down)
+    assert torch.allclose(out_zero, torch.zeros(batch_size, d_model), atol=1e-6), (
+        "Zero input should produce zero output — both projections should multiply through x"
+    )
+
+    # ── Test 3: single-token batch (edge case) ─────────────────────────────────
+    x_single   = torch.randn(1, d_model)
+    out_single = swiglu_ffn(x_single, W_gate, W_up, W_down)
+    assert out_single.shape == (1, d_model), (
+        f"Single-token shape wrong: expected (1, {d_model}), got {out_single.shape}"
+    )
+
+    # ── Test 4: W_gate must be used (wrong-implementation detector) ────────────
+    W_gate_alt = torch.randn(d_model, d_hidden)
+    out_alt    = swiglu_ffn(x, W_gate_alt, W_up, W_down)
+    assert not torch.allclose(out, out_alt), (
+        "Output did not change when W_gate was replaced — are you using W_gate to compute the gate?"
+    )
+
+    # ── Test 5: W_up must be used as an independent projection ─────────────────
+    W_up_alt   = torch.randn(d_model, d_hidden)
+    out_up_alt = swiglu_ffn(x, W_gate, W_up_alt, W_down)
+    assert not torch.allclose(out, out_up_alt), (
+        "Output did not change when W_up was replaced — are you using W_up as a separate projection from W_gate?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Max absolute output value: {out.abs().max():.4f}")
+    print(f"Mean SiLU gate activation: {F.silu(x @ W_gate).mean():.4f}")
+`,
+  },
+  {
+    id: 'conv2d-forward',
+    title: '2D Convolution (Conv2d)',
+    module: 'Multimodal Models',
+    difficulty: 'intermediate',
+    language: 'python',
+    tags: ['torch', 'convolution', 'vision', 'patch embedding', 'multimodal'],
+    visualization: Conv2dVisualization,
+    description: `2D convolution slides a learnable kernel over an image to detect local spatial patterns — and in Vision Transformers, a strided Conv2d with kernel_size=patch_size converts an entire image into a sequence of patch tokens fed to the transformer encoder (Dosovitskiy et al., "An Image is Worth 16×16 Words", 2021).
+
+For each output channel and each output position (h, w), the result is the dot product between the kernel and the aligned receptive field patch in the input, summed across all input channels:
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│  out[b, co, h, w] = bias[co]                                              │
+│    + Σ_{ci, kh, kw}  x[b, ci, h·s+kh, w·s+kw] × K[co, ci, kh, kw]       │
+│                                                                            │
+│  H_out = (H_in − kH) // stride + 1                                        │
+│  W_out = (W_in − kW) // stride + 1                                        │
+└──────────────────────────────────────────────────────────────────────────┘
+
+📋 Tensor Reference Table:
+  +----------+----------------------------------------------+------------------------------+
+  | Tensor   | Description                                  | Shape                        |
+  +----------+----------------------------------------------+------------------------------+
+  | x        | input feature map (image or features)        | (batch, C_in, H_in, W_in)    |
+  | kernel   | learnable filter weights                     | (C_out, C_in, kH, kW)        |
+  | bias     | per-output-channel offset                    | (C_out,)                     |
+  | unfolded | all receptive field patches as columns       | (batch, C_in·kH·kW, L)       |
+  | w_flat   | kernel reshaped for matmul                   | (C_out, C_in·kH·kW)          |
+  | output   | convolved result                             | (batch, C_out, H_out, W_out) |
+  +----------+----------------------------------------------+------------------------------+
+
+(L = H_out × W_out = total number of output positions)
+
+An interactive, animated kernel-sliding visualization is available above — watch the cyan receptive field sweep across the input as the amber output cell is computed, and use the stride selector to see how stride shrinks the output grid.
+
+Steps:
+  1. Compute output dimensions: H_out = (H_in − kH) // stride + 1, W_out = (W_in − kW) // stride + 1
+  2. Extract all receptive fields simultaneously:
+       unfolded = F.unfold(x, kernel_size=(kH, kW), stride=stride)   → (batch, C_in·kH·kW, L)
+  3. Flatten kernel weights:
+       w_flat = kernel.reshape(C_out, −1)                            → (C_out, C_in·kH·kW)
+  4. Batch matrix multiply — all output values at once:
+       out_flat = w_flat.unsqueeze(0) @ unfolded                     → (batch, C_out, L)
+  5. Add bias and reshape:
+       (out_flat + bias.view(1, C_out, 1)).reshape(batch, C_out, H_out, W_out)
+
+Requirements:
+  • Use only PyTorch (torch and torch.nn.functional are available).
+  • Output shape must be (batch, C_out, H_out, W_out).
+  • No padding — all tests use valid convolution (output smaller than input).
+  • Tip: F.unfold converts the sliding-window loop into a single matrix multiply.`,
+
+    staticHint: `The key insight: every 2D convolution is a matrix multiply in disguise.
+
+What if you could collect all the receptive field patches as columns of one big matrix?
+  unfolded = F.unfold(x, kernel_size=(kH, kW), stride=stride)
+  # shape: (batch, C_in * kH * kW, H_out * W_out)
+  # each column is a single flattened patch from the input
+
+Now if you flatten kernel to (C_out, C_in * kH * kW), what does
+  w_flat.unsqueeze(0) @ unfolded
+give you in terms of shape and meaning?
+
+After that matmul you have all output values but not yet the right shape.
+Where does bias fit in, and what reshape turns (batch, C_out, H_out*W_out)
+back into (batch, C_out, H_out, W_out)?`,
+
+    starterCode: `import torch
+import torch.nn.functional as F
+
+
+def conv2d_forward(
+    x: torch.Tensor,
+    kernel: torch.Tensor,
+    bias: torch.Tensor,
+    stride: int = 1,
+) -> torch.Tensor:
+    """
+    2D convolution forward pass (valid convolution, no padding).
+
+    out[b, co, h, w] = bias[co]
+        + sum over ci, kh, kw: x[b, ci, h*s+kh, w*s+kw] * kernel[co, ci, kh, kw]
+
+    Args:
+        x:      Input tensor of shape (batch, C_in, H_in, W_in).
+        kernel: Filter weights of shape (C_out, C_in, kH, kW).
+        bias:   Per-output-channel bias of shape (C_out,).
+        stride: Kernel step size (default 1).
+
+    Returns:
+        Output tensor of shape (batch, C_out, H_out, W_out)
+        where H_out = (H_in - kH) // stride + 1
+              W_out = (W_in - kW) // stride + 1
+    """
+    # YOUR CODE HERE
+    pass
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(0)
+
+    batch, C_in, H_in, W_in = 2, 3, 7, 7
+    C_out, kH, kW = 4, 3, 3
+    stride = 1
+
+    x      = torch.randn(batch, C_in, H_in, W_in)
+    kernel = torch.randn(C_out, C_in, kH, kW)
+    bias   = torch.randn(C_out)
+
+    out = conv2d_forward(x, kernel, bias, stride)
+
+    # ── Test 1: type and shape ─────────────────────────────────────────────────
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    H_out = (H_in - kH) // stride + 1
+    W_out = (W_in - kW) // stride + 1
+    assert out.shape == (batch, C_out, H_out, W_out), (
+        f"Shape wrong: expected ({batch}, {C_out}, {H_out}, {W_out}), got {out.shape}"
+    )
+
+    # Reference: PyTorch built-in F.conv2d (built-in parity check)
+    expected = F.conv2d(x, kernel, bias, stride=stride)
+    assert torch.allclose(out, expected, atol=1e-5), (
+        f"Numerical mismatch vs F.conv2d. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 2: 1×1 identity kernel returns input unchanged ───────────────────
+    x_id      = torch.randn(1, 1, 4, 4)
+    kernel_id = torch.ones(1, 1, 1, 1)
+    bias_id   = torch.zeros(1)
+    out_id    = conv2d_forward(x_id, kernel_id, bias_id, stride=1)
+    assert out_id.shape == (1, 1, 4, 4), (
+        f"1×1 kernel should preserve spatial dims: got {out_id.shape}"
+    )
+    assert torch.allclose(out_id, x_id, atol=1e-6), (
+        "1×1 all-ones kernel + zero bias should return the input unchanged"
+    )
+
+    # ── Test 3: zero input → output equals bias broadcast ─────────────────────
+    x_zero   = torch.zeros(batch, C_in, H_in, W_in)
+    out_zero = conv2d_forward(x_zero, kernel, bias, stride)
+    expected_zero = bias.view(1, C_out, 1, 1).expand(batch, C_out, H_out, W_out)
+    assert torch.allclose(out_zero, expected_zero, atol=1e-6), (
+        "Zero input should produce output equal to bias at every spatial position"
+    )
+
+    # ── Test 4: stride=2 produces correct shape and values ────────────────────
+    out_s2 = conv2d_forward(x, kernel, bias, stride=2)
+    H_out2 = (H_in - kH) // 2 + 1
+    W_out2 = (W_in - kW) // 2 + 1
+    assert out_s2.shape == (batch, C_out, H_out2, W_out2), (
+        f"Stride=2 shape wrong: expected ({batch},{C_out},{H_out2},{W_out2}), got {out_s2.shape}"
+    )
+    expected_s2 = F.conv2d(x, kernel, bias, stride=2)
+    assert torch.allclose(out_s2, expected_s2, atol=1e-5), (
+        f"Stride=2 mismatch vs F.conv2d. Max diff: {torch.max(torch.abs(out_s2 - expected_s2)):.2e}"
+    )
+
+    # ── Test 5: kernel detector (wrong-implementation detector) ───────────────
+    kernel_alt = torch.randn(C_out, C_in, kH, kW)
+    out_alt    = conv2d_forward(x, kernel_alt, bias, stride)
+    assert not torch.allclose(out, out_alt), (
+        "Output did not change when kernel was replaced — are you applying the kernel weights?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Max diff vs F.conv2d: {torch.max(torch.abs(out - expected)):.2e}  (should be ~0)")
+    print(f"Stride=2 output shape: {out_s2.shape}")
+`,
+
+    solutionCode: `import torch
+import torch.nn.functional as F
+
+
+def conv2d_forward(
+    x: torch.Tensor,
+    kernel: torch.Tensor,
+    bias: torch.Tensor,
+    stride: int = 1,
+) -> torch.Tensor:
+    """
+    2D convolution forward pass (valid convolution, no padding).
+
+    out[b, co, h, w] = bias[co]
+        + sum over ci, kh, kw: x[b, ci, h*s+kh, w*s+kw] * kernel[co, ci, kh, kw]
+
+    Args:
+        x:      Input tensor of shape (batch, C_in, H_in, W_in).
+        kernel: Filter weights of shape (C_out, C_in, kH, kW).
+        bias:   Per-output-channel bias of shape (C_out,).
+        stride: Kernel step size (default 1).
+
+    Returns:
+        Output tensor of shape (batch, C_out, H_out, W_out)
+        where H_out = (H_in - kH) // stride + 1
+              W_out = (W_in - kW) // stride + 1
+    """
+    batch, C_in, H_in, W_in = x.shape
+    C_out, _, kH, kW = kernel.shape
+    H_out = (H_in - kH) // stride + 1
+    W_out = (W_in - kW) // stride + 1
+
+    unfolded = F.unfold(x, kernel_size=(kH, kW), stride=stride)
+    w_flat   = kernel.reshape(C_out, -1)
+    out_flat = w_flat.unsqueeze(0) @ unfolded
+    out_flat = out_flat + bias.view(1, C_out, 1)
+    return out_flat.reshape(batch, C_out, H_out, W_out)
+
+
+# ── Test harness (do not modify below this line) ──────────────────────────────
+
+if __name__ == "__main__":
+    torch.manual_seed(0)
+
+    batch, C_in, H_in, W_in = 2, 3, 7, 7
+    C_out, kH, kW = 4, 3, 3
+    stride = 1
+
+    x      = torch.randn(batch, C_in, H_in, W_in)
+    kernel = torch.randn(C_out, C_in, kH, kW)
+    bias   = torch.randn(C_out)
+
+    out = conv2d_forward(x, kernel, bias, stride)
+
+    # ── Test 1: type and shape ─────────────────────────────────────────────────
+    assert out is not None, "Function returned None — did you forget to return?"
+    assert isinstance(out, torch.Tensor), f"Expected torch.Tensor, got {type(out)}"
+    H_out = (H_in - kH) // stride + 1
+    W_out = (W_in - kW) // stride + 1
+    assert out.shape == (batch, C_out, H_out, W_out), (
+        f"Shape wrong: expected ({batch}, {C_out}, {H_out}, {W_out}), got {out.shape}"
+    )
+
+    # Reference: PyTorch built-in F.conv2d (built-in parity check)
+    expected = F.conv2d(x, kernel, bias, stride=stride)
+    assert torch.allclose(out, expected, atol=1e-5), (
+        f"Numerical mismatch vs F.conv2d. Max diff: {torch.max(torch.abs(out - expected)):.2e}"
+    )
+
+    # ── Test 2: 1×1 identity kernel returns input unchanged ───────────────────
+    x_id      = torch.randn(1, 1, 4, 4)
+    kernel_id = torch.ones(1, 1, 1, 1)
+    bias_id   = torch.zeros(1)
+    out_id    = conv2d_forward(x_id, kernel_id, bias_id, stride=1)
+    assert out_id.shape == (1, 1, 4, 4), (
+        f"1×1 kernel should preserve spatial dims: got {out_id.shape}"
+    )
+    assert torch.allclose(out_id, x_id, atol=1e-6), (
+        "1×1 all-ones kernel + zero bias should return the input unchanged"
+    )
+
+    # ── Test 3: zero input → output equals bias broadcast ─────────────────────
+    x_zero   = torch.zeros(batch, C_in, H_in, W_in)
+    out_zero = conv2d_forward(x_zero, kernel, bias, stride)
+    expected_zero = bias.view(1, C_out, 1, 1).expand(batch, C_out, H_out, W_out)
+    assert torch.allclose(out_zero, expected_zero, atol=1e-6), (
+        "Zero input should produce output equal to bias at every spatial position"
+    )
+
+    # ── Test 4: stride=2 produces correct shape and values ────────────────────
+    out_s2 = conv2d_forward(x, kernel, bias, stride=2)
+    H_out2 = (H_in - kH) // 2 + 1
+    W_out2 = (W_in - kW) // 2 + 1
+    assert out_s2.shape == (batch, C_out, H_out2, W_out2), (
+        f"Stride=2 shape wrong: expected ({batch},{C_out},{H_out2},{W_out2}), got {out_s2.shape}"
+    )
+    expected_s2 = F.conv2d(x, kernel, bias, stride=2)
+    assert torch.allclose(out_s2, expected_s2, atol=1e-5), (
+        f"Stride=2 mismatch vs F.conv2d. Max diff: {torch.max(torch.abs(out_s2 - expected_s2)):.2e}"
+    )
+
+    # ── Test 5: kernel detector (wrong-implementation detector) ───────────────
+    kernel_alt = torch.randn(C_out, C_in, kH, kW)
+    out_alt    = conv2d_forward(x, kernel_alt, bias, stride)
+    assert not torch.allclose(out, out_alt), (
+        "Output did not change when kernel was replaced — are you applying the kernel weights?"
+    )
+
+    print("All tests passed!")
+    print(f"Output shape: {out.shape}")
+    print(f"Max diff vs F.conv2d: {torch.max(torch.abs(out - expected)):.2e}  (should be ~0)")
+    print(f"Stride=2 output shape: {out_s2.shape}")
 `,
   },
 ]

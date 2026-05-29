@@ -23,7 +23,7 @@ async function checkTriton(): Promise<boolean> {
     return isTritonAvailable;
   }
   try {
-    await execFileAsync('python3', ['-c', 'import triton'], { timeout: 2000 });
+    await execFileAsync('python3', ['-c', 'import triton'], { timeout: 2000, maxBuffer: 1024 });
     isTritonAvailable = true;
   } catch {
     isTritonAvailable = false;
@@ -159,6 +159,7 @@ export async function executePython(code: string): Promise<ExecutionResult> {
       timeout: TIMEOUT_MS,
       cwd: runDir,
       env: { ...process.env, TRITON_INTERPRET: '1' },
+      maxBuffer: 1024 * 1024,
     });
 
     // execFileAsync only resolves on exit code 0
@@ -200,6 +201,7 @@ export async function executeRust(code: string): Promise<ExecutionResult> {
       await execFileAsync('rustc', [srcFile, '-o', outFile], {
         timeout: TIMEOUT_MS,
         cwd: runDir,
+        maxBuffer: 1024 * 1024,
       });
     } catch (compileErr: unknown) {
       const e = compileErr as { stderr?: string; stdout?: string };
@@ -215,6 +217,7 @@ export async function executeRust(code: string): Promise<ExecutionResult> {
     const { stdout, stderr } = await execFileAsync(outFile, [], {
       timeout: TIMEOUT_MS,
       cwd: runDir,
+      maxBuffer: 1024 * 1024,
     });
 
     return {
