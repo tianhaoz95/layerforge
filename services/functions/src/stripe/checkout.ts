@@ -13,7 +13,7 @@ interface CheckoutRequest {
 }
 
 export const createCheckoutSession = onCall(
-  { secrets: [stripeSecretKey] },
+  { secrets: [stripeSecretKey], cors: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
