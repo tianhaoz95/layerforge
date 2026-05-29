@@ -155,5 +155,8 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAYERFORGE_PLATFORM }}
 
+      - name: Deploy Firestore rules
+        run: npx firebase-tools deploy --only firestore --project layerforge-platform --force
+
       - name: Deploy functions
         run: npx firebase-tools deploy --only functions --project layerforge-platform --force
