@@ -2,9 +2,9 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
 # ── Runtime image ──────────────────────────────────────────────
 FROM python:3.12-slim
