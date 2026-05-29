@@ -140,7 +140,7 @@ export function HowItWorks({ lang }: HowItWorksProps) {
                     onMouseLeave={() => setIsHovered(false)}
                     className="flex gap-6 items-start cursor-pointer group transition-all duration-300"
                   >
-                    <div className="flex-shrink-0 z-20">
+                    <div className="flex-shrink-0 z-20 relative">
                       <div
                         className={`flex h-16 w-16 items-center justify-center rounded-full border font-mono text-sm font-bold transition-all duration-300 ${
                           isActive
