@@ -34,9 +34,9 @@ export default function App() {
       <Navbar theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} />
       <main>
         <Hero lang={lang} />
-        <Features lang={lang} />
-        <VisualPlayground lang={lang} />
         <HowItWorks lang={lang} />
+        <VisualPlayground lang={lang} />
+        <Features lang={lang} />
       </main>
       <Footer lang={lang} />
     </div>
