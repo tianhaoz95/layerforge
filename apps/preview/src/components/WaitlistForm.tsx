@@ -1,4 +1,6 @@
 import { useState, FormEvent } from 'react'
+import { addDoc, collection } from 'firebase/firestore'
+import { db } from '../firebase'
 
 interface WaitlistEntry {
   name: string
@@ -6,17 +8,8 @@ interface WaitlistEntry {
   submittedAt: string
 }
 
-const STORAGE_KEY = 'layerforge:waitlist'
-
-// Phase 2: replace this function body with:
-//   import { addDoc, collection } from 'firebase/firestore'
-//   await addDoc(collection(db, 'waitlist'), entry)
-function persistEntry(entry: WaitlistEntry): void {
-  const existing: WaitlistEntry[] = JSON.parse(
-    localStorage.getItem(STORAGE_KEY) ?? '[]',
-  )
-  existing.push(entry)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing))
+async function persistEntry(entry: WaitlistEntry): Promise<void> {
+  await addDoc(collection(db, 'waitlist'), entry)
 }
 
 interface WaitlistFormProps {
