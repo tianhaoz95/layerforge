@@ -2,10 +2,18 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { Dashboard } from './pages/Dashboard'
 import { ChallengePage } from './pages/ChallengePage'
+import { ProfilePage } from './pages/ProfilePage'
+import { RequireAuthLayout } from './components/RequireAuthLayout'
 
 const router = createBrowserRouter([
-  { path: '/', element: <Dashboard /> },
-  { path: '/challenge/:id', element: <ChallengePage /> },
+  {
+    element: <RequireAuthLayout />,
+    children: [
+      { path: '/', element: <Dashboard /> },
+      { path: '/challenge/:id', element: <ChallengePage /> },
+      { path: '/profile', element: <ProfilePage /> },
+    ],
+  },
   {
     path: '*',
     element: (

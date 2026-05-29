@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { challenges } from '../data/challenges'
 import { ChallengeCard } from '../components/ChallengeCard'
 import { useProgress } from '../hooks/useProgress'
@@ -7,7 +8,7 @@ import { getChallengeWithI18n } from '../data/translations'
 
 export function Dashboard() {
   const { progress } = useProgress()
-  const { user, loading, signIn, signOut } = useAuth()
+  const { user, loading } = useAuth()
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('lf-theme') as 'dark' | 'light') || 'dark'
@@ -39,6 +40,10 @@ export function Dashboard() {
       signIn: 'Sign in with Google',
       arena: 'Challenge Arena',
       arenaSub: 'Build AI components from scratch. No shortcuts.',
+      overallProgress: 'Overall Progress',
+      completedLabel: 'completed',
+      inProgress: 'in progress',
+      remaining: 'remaining',
     },
     zh: {
       completed: '已完成',
@@ -47,6 +52,10 @@ export function Dashboard() {
       signIn: '使用 Google 登录',
       arena: '挑战竞技场',
       arenaSub: '从零开始构建 AI 组件。没有捷径。',
+      overallProgress: '整体进度',
+      completedLabel: '已完成',
+      inProgress: '进行中',
+      remaining: '未开始',
     }
   }[lang]
 
@@ -82,36 +91,21 @@ export function Dashboard() {
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
 
-            {!loading && (
-              user ? (
-                <div className="flex items-center gap-2">
-                  {user.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt={user.displayName ?? 'User'}
-                      referrerPolicy="no-referrer"
-                      className="h-8 w-8 rounded-full"
-                    />
-                  ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-400">
-                      {user.displayName?.[0]?.toUpperCase() ?? 'U'}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => void signOut()}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    {t.signOut}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => void signIn()}
-                  className="flex items-center gap-2 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-700 transition-colors whitespace-nowrap"
-                >
-                  {t.signIn}
-                </button>
-              )
+            {!loading && user && (
+              <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName ?? 'User'}
+                    referrerPolicy="no-referrer"
+                    className="h-8 w-8 rounded-full"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-400">
+                    {user.displayName?.[0]?.toUpperCase() ?? 'U'}
+                  </div>
+                )}
+              </Link>
             )}
           </div>
         </div>
@@ -119,24 +113,57 @@ export function Dashboard() {
 
       {/* Main content */}
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-10">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-white">{t.arena}</h1>
-          <p className="mt-2 text-gray-400">
-            {t.arenaSub}
-          </p>
+          <p className="mt-2 text-gray-400">{t.arenaSub}</p>
+        </div>
+
+        {/* Progress overview */}
+        <div className="mb-10 rounded-lg border border-gray-800 bg-gray-900/60 p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-300">{t.overallProgress}</span>
+            <span className="font-mono text-sm text-gray-500">
+              {completedCount}/{translatedChallenges.length} {t.completed}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-700"
+              style={{ width: `${Math.round((completedCount / translatedChallenges.length) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-3 flex gap-6 text-xs text-gray-600">
+            <span><span className="text-emerald-500">{completedCount}</span> {t.completedLabel}</span>
+            <span>
+              <span className="text-amber-500">
+                {Object.values(progress).filter((p) => !p.completed && p.attempts > 0).length}
+              </span>{' '}
+              {t.inProgress}
+            </span>
+            <span>
+              <span className="text-gray-500">{translatedChallenges.length - completedCount}</span>{' '}
+              {t.remaining}
+            </span>
+          </div>
         </div>
 
         {modules.map((mod) => {
           const modChallenges = translatedChallenges.filter((c) => c.module === mod)
+          const modCompleted = modChallenges.filter((c) => progress[c.id]?.completed).length
           return (
             <section key={mod} className="mb-12">
               <div className="mb-5 flex items-center gap-3">
                 <span className="h-2 w-2 rounded-full bg-cyan-400" />
                 <h2 className="text-lg font-semibold text-gray-200">{mod}</h2>
                 <span className="text-sm text-gray-600">
-                  {modChallenges.filter((c) => progress[c.id]?.completed).length}/
-                  {modChallenges.length} {t.done}
+                  {modCompleted}/{modChallenges.length} {t.done}
                 </span>
+                <div className="ml-auto h-1.5 w-16 overflow-hidden rounded-full bg-gray-800">
+                  <div
+                    className="h-full rounded-full bg-cyan-500/60 transition-all duration-500"
+                    style={{ width: `${(modCompleted / modChallenges.length) * 100}%` }}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

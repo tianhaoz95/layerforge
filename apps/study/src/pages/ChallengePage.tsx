@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react'
 import { challenges } from '../data/challenges'
 import { runCode } from '../services/sandbox'
 import { useProgress } from '../hooks/useProgress'
+import { useAuth } from '../contexts/AuthContext'
 import { ResultPanel } from '../components/ResultPanel'
 import { HintPanel } from '../components/HintPanel'
 import { DescriptionRenderer } from '../components/DescriptionRenderer'
@@ -45,6 +46,7 @@ export function ChallengePage() {
   const challenge = challengeBase ? getChallengeWithI18n(challengeBase, lang) : undefined
 
   const { progress, markComplete, incrementAttempt } = useProgress()
+  const { user } = useAuth()
   const isCompleted = progress[id ?? '']?.completed ?? false
 
   const [code, setCode] = useState(challenge?.starterCode ?? '')
@@ -195,6 +197,22 @@ export function ChallengePage() {
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
+
+            {/* Profile link */}
+            <Link to="/profile" className="flex items-center hover:opacity-80 transition-opacity">
+              {user?.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-7 w-7 rounded-full"
+                />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-400">
+                  {user?.displayName?.[0]?.toUpperCase() ?? 'U'}
+                </div>
+              )}
+            </Link>
           </div>
         </div>
       </header>
