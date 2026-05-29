@@ -34,20 +34,28 @@ jobs:
       - name: Build functions
         run: pnpm --filter @layerforge/functions build
 
-      - name: Upload app dist artifacts
-        uses: actions/upload-artifact@v4
+      # Upload each dist separately so download-artifact restores to the exact path
+      - uses: actions/upload-artifact@v4
         with:
-          name: app-dist
-          path: |
-            apps/home/dist
-            apps/preview/dist
-            apps/study/dist
+          name: dist-home
+          path: apps/home/dist
           retention-days: 1
 
-      - name: Upload functions dist artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: functions-dist
+          name: dist-preview
+          path: apps/preview/dist
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-study
+          path: apps/study/dist
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-functions
           path: services/functions/lib
           retention-days: 1
 
@@ -59,10 +67,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download app dist artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: app-dist
+          name: dist-home
+          path: apps/home/dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-preview
+          path: apps/preview/dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-study
+          path: apps/study/dist
 
       - name: Deploy home
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -97,10 +115,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download functions dist artifact
-        uses: actions/download-artifact@v4
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
         with:
-          name: functions-dist
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-functions
           path: services/functions/lib
 
       - name: Authenticate to Google Cloud
