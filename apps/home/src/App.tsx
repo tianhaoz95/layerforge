@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navbar } from './components/Navbar'
 import { Hero } from './components/Hero'
 import { Features } from './components/Features'
+import { Pricing } from './components/Pricing'
 import { VisualPlayground } from './components/VisualPlayground'
 import { HowItWorks } from './components/HowItWorks'
 import { Footer } from './components/Footer'
@@ -37,6 +38,7 @@ export default function App() {
         <HowItWorks lang={lang} />
         <VisualPlayground lang={lang} />
         <Features lang={lang} />
+        <Pricing lang={lang} />
       </main>
       <Footer lang={lang} />
     </div>

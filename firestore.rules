@@ -2,8 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Anyone can submit to the waitlist (no sign-in on preview page).
-    // Read/update/delete require auth so only the admin dashboard can see entries.
+    // Waitlist: public create (preview app has no sign-in),
+    // read/update/delete require auth (admin dashboard only).
     match /waitlist/{entry} {
       allow create: if request.resource.data.keys().hasAll(['name', 'email', 'submittedAt'])
                     && request.resource.data.name is string
@@ -12,9 +12,18 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null;
     }
 
-    // Everything else requires authentication.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // User profiles: each user reads their own doc only.
+    // Writes are performed exclusively by Cloud Functions via the Admin SDK,
+    // which bypasses these rules entirely.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Stripe customer → Firebase UID reverse map.
+    // Only the Admin SDK (Cloud Functions) reads or writes this collection.
+    match /stripeCustomers/{customerId} {
+      allow read, write: if false;
     }
 
   }

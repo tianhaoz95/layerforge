@@ -3,15 +3,28 @@ import { AuthProvider } from './contexts/AuthContext'
 import { Dashboard } from './pages/Dashboard'
 import { ChallengePage } from './pages/ChallengePage'
 import { ProfilePage } from './pages/ProfilePage'
+import { BillingPage } from './pages/BillingPage'
+import { BillingSuccessPage } from './pages/BillingSuccessPage'
 import { RequireAuthLayout } from './components/RequireAuthLayout'
+import { RequireSubscriptionLayout } from './components/RequireSubscriptionLayout'
 
 const router = createBrowserRouter([
   {
     element: <RequireAuthLayout />,
     children: [
-      { path: '/', element: <Dashboard /> },
-      { path: '/challenge/:id', element: <ChallengePage /> },
-      { path: '/profile', element: <ProfilePage /> },
+      // Billing is accessible after sign-in but before (and without) a subscription.
+      { path: '/billing',         element: <BillingPage /> },
+      { path: '/billing/success', element: <BillingSuccessPage /> },
+
+      // Everything else requires an active/trialing subscription.
+      {
+        element: <RequireSubscriptionLayout />,
+        children: [
+          { path: '/',                  element: <Dashboard /> },
+          { path: '/challenge/:id',     element: <ChallengePage /> },
+          { path: '/profile',           element: <ProfilePage /> },
+        ],
+      },
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAnalytics } from 'firebase/analytics'
 import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 
@@ -17,6 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null
 export const auth = getAuth(app)
+export const db = getFirestore(app)
 export const googleProvider = new GoogleAuthProvider()
 export const functions = getFunctions(app)
 
@@ -35,6 +37,7 @@ initializeAppCheck(app, {
 
 if (import.meta.env.DEV) {
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
   connectFunctionsEmulator(functions, '127.0.0.1', 5001)
 }
 
