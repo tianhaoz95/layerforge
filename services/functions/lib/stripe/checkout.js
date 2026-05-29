@@ -73,6 +73,16 @@ exports.createCheckoutSession = (0, https_1.onCall)({ secrets: [stripeSecretKey]
         await db.collection('users').doc(uid).set({ stripeCustomerId: customerId }, { merge: true });
         await db.collection('stripeCustomers').doc(customerId).set({ uid });
     }
+    // Reject if the customer already has a non-canceled subscription.
+    // This is the authoritative guard against duplicate subscriptions.
+    const existing = await stripe.subscriptions.list({
+        customer: customerId,
+        limit: 1,
+    });
+    const hasLive = existing.data.some((s) => ['active', 'trialing', 'past_due', 'incomplete'].includes(s.status));
+    if (hasLive) {
+        throw new https_1.HttpsError('already-exists', 'You already have an active subscription. Manage it from your profile.');
+    }
     const session = await stripe.checkout.sessions.create({
         customer: customerId,
         client_reference_id: uid,

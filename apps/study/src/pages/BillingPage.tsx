@@ -48,7 +48,9 @@ export function BillingPage() {
     }
   }
 
-  const isActive = subscription?.status === 'trialing' || subscription?.status === 'active'
+  // A subscription is "live" if it's in any state that Stripe considers billable/active.
+  // We block new checkout sessions for all of these on the server too.
+  const isLive = subscription != null && ['active', 'trialing', 'past_due', 'incomplete'].includes(subscription.status)
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 px-6 py-16">
@@ -63,7 +65,7 @@ export function BillingPage() {
           <div className="mt-24 flex justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
           </div>
-        ) : isActive ? (
+        ) : isLive ? (
           <ActiveSubscriptionView
             subscription={subscription!}
             user={user}
@@ -74,6 +76,7 @@ export function BillingPage() {
         ) : (
           <PricingView busy={busy} error={error} onSelect={startCheckout} />
         )}
+
       </div>
     </div>
   )
