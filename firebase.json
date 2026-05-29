@@ -1,6 +1,12 @@
 {
   "hosting": [
     {
+      "site": "layerforge-admin",
+      "public": "apps/admin/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    },
+    {
       "site": "layerforge-platform",
       "public": "apps/home/dist",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],

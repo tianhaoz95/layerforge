@@ -21,7 +21,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build apps
-        run: pnpm --filter @layerforge/home --filter @layerforge/preview --filter @layerforge/study build
+        run: pnpm --filter @layerforge/home --filter @layerforge/preview --filter @layerforge/study --filter @layerforge/admin build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -35,6 +35,12 @@ jobs:
         run: pnpm --filter @layerforge/functions build
 
       # Upload each dist separately so download-artifact restores to the exact path
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-admin
+          path: apps/admin/dist
+          retention-days: 1
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist-home
@@ -69,6 +75,11 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          name: dist-admin
+          path: apps/admin/dist
+
+      - uses: actions/download-artifact@v4
+        with:
           name: dist-home
           path: apps/home/dist
 
@@ -81,6 +92,15 @@ jobs:
         with:
           name: dist-study
           path: apps/study/dist
+
+      - name: Deploy admin
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAYERFORGE_PLATFORM }}
+          projectId: layerforge-platform
+          target: layerforge-admin
+          channelId: live
 
       - name: Deploy home
         uses: FirebaseExtended/action-hosting-deploy@v0
