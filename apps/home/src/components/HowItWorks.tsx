@@ -144,7 +144,7 @@ export function HowItWorks({ lang }: HowItWorksProps) {
                       <div
                         className={`flex h-16 w-16 items-center justify-center rounded-full border font-mono text-sm font-bold transition-all duration-300 ${
                           isActive
-                            ? 'border-2 border-cyan-400 bg-cyan-400/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.25)] scale-105'
+                            ? 'border-2 border-cyan-400 bg-gray-900 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.25)] scale-105'
                             : 'border-gray-800 bg-gray-900 text-gray-400 group-hover:border-cyan-500/40 group-hover:text-gray-300'
                         }`}
                       >
