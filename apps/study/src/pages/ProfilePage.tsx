@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { httpsCallable } from 'firebase/functions'
 import { useAuth } from '../contexts/AuthContext'
 import { useProgress } from '../hooks/useProgress'
+import { useSubscription } from '../hooks/useSubscription'
+import { functions } from '../lib/firebase'
 import { challenges } from '../data/challenges'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
+
+const createPortalSession = httpsCallable<unknown, { url: string }>(functions, 'createPortalSession')
 
 function calcStreak(activityLog: Record<string, number>): number {
   const fmt = (d: Date) => {
@@ -29,9 +34,16 @@ function calcStreak(activityLog: Record<string, number>): number {
   return streak
 }
 
+const PRICE_MONTHLY = import.meta.env.VITE_STRIPE_PRICE_MONTHLY as string
+
+function formatDate(d: Date) {
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
 export function ProfilePage() {
   const { user, signOut } = useAuth()
   const { progress, activityLog } = useProgress()
+  const { subscription, loading: subLoading } = useSubscription()
 
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('lf-theme') as 'dark' | 'light') || 'dark'
@@ -39,6 +51,8 @@ export function ProfilePage() {
   const [lang, setLang] = useState<'en' | 'zh'>(
     () => (localStorage.getItem('lf-lang') as 'en' | 'zh') || 'en'
   )
+  const [portalBusy, setPortalBusy] = useState(false)
+  const [portalError, setPortalError] = useState('')
 
   useEffect(() => {
     localStorage.setItem('lf-theme', theme)
@@ -61,6 +75,33 @@ export function ProfilePage() {
     { label: 'Active Days', value: activeDays },
     { label: 'Streak', value: `${streak}d` },
   ]
+
+  async function openPortal() {
+    setPortalBusy(true)
+    setPortalError('')
+    try {
+      const { data } = await createPortalSession({ returnUrl: window.location.href })
+      window.location.href = data.url
+    } catch (err) {
+      setPortalError(err instanceof Error ? err.message : 'Something went wrong.')
+      setPortalBusy(false)
+    }
+  }
+
+  // Derive plan label from price ID
+  const planLabel = subscription?.priceId === PRICE_MONTHLY ? 'Monthly' : 'Annual'
+
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    trialing:           { label: 'Free trial',      color: 'text-purple-400 border-purple-500/30 bg-purple-500/5' },
+    active:             { label: 'Active',           color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/5' },
+    past_due:           { label: 'Payment overdue',  color: 'text-red-400 border-red-500/30 bg-red-500/5' },
+    canceled:           { label: 'Canceled',         color: 'text-gray-500 border-gray-700 bg-gray-800/50' },
+    incomplete:         { label: 'Incomplete',       color: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5' },
+    incomplete_expired: { label: 'Expired',          color: 'text-gray-500 border-gray-700 bg-gray-800/50' },
+    unpaid:             { label: 'Unpaid',           color: 'text-red-400 border-red-500/30 bg-red-500/5' },
+  }
+
+  const status = subscription ? (statusConfig[subscription.status] ?? { label: subscription.status, color: 'text-gray-400 border-gray-700 bg-gray-800/50' }) : null
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -121,6 +162,96 @@ export function ProfilePage() {
           <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Activity</h2>
           <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
             <ActivityHeatmap activityLog={activityLog} />
+          </div>
+        </section>
+
+        {/* Subscription & Billing */}
+        <section>
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Subscription &amp; Billing</h2>
+          <div className="rounded-lg border border-gray-800 bg-gray-900 divide-y divide-gray-800">
+            {subLoading ? (
+              <div className="px-5 py-4">
+                <div className="h-4 w-32 animate-pulse rounded bg-gray-800" />
+              </div>
+            ) : !subscription ? (
+              <div className="flex items-center justify-between px-5 py-4">
+                <span className="text-sm text-gray-500">No active subscription</span>
+                <Link
+                  to="/billing"
+                  className="rounded-md bg-cyan-500/10 border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+                >
+                  Subscribe
+                </Link>
+              </div>
+            ) : (
+              <>
+                {/* Plan + status */}
+                <div className="flex items-center justify-between px-5 py-4">
+                  <span className="text-sm text-gray-300">Plan</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono text-gray-200">LayerForge Pro · {planLabel}</span>
+                    {status && (
+                      <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${status.color}`}>
+                        {status.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Trial end */}
+                {subscription.status === 'trialing' && subscription.trialEnd && (
+                  <div className="flex items-center justify-between px-5 py-4">
+                    <span className="text-sm text-gray-300">Trial ends</span>
+                    <span className="text-sm font-mono text-gray-400">
+                      {formatDate(subscription.trialEnd.toDate())}
+                    </span>
+                  </div>
+                )}
+
+                {/* Next billing / access ends */}
+                {subscription.currentPeriodEnd && subscription.status !== 'canceled' && (
+                  <div className="flex items-center justify-between px-5 py-4">
+                    <span className="text-sm text-gray-300">
+                      {subscription.cancelAtPeriodEnd ? 'Access ends' : 'Next billing'}
+                    </span>
+                    <span className="text-sm font-mono text-gray-400">
+                      {formatDate(subscription.currentPeriodEnd.toDate())}
+                    </span>
+                  </div>
+                )}
+
+                {/* Past due warning */}
+                {subscription.status === 'past_due' && (
+                  <div className="px-5 py-4">
+                    <p className="text-xs text-red-400">
+                      Your last payment failed. Update your payment method to keep access.
+                    </p>
+                  </div>
+                )}
+
+                {/* Portal button */}
+                <div className="flex items-center justify-between px-5 py-4">
+                  <span className="text-sm text-gray-300">
+                    {subscription.status === 'past_due'
+                      ? 'Update payment method, view invoices, cancel'
+                      : 'Change plan, update payment method, view invoices, cancel'}
+                  </span>
+                  <button
+                    onClick={openPortal}
+                    disabled={portalBusy}
+                    className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors whitespace-nowrap ml-4"
+                  >
+                    {portalBusy ? 'Opening…' : 'Manage billing'}
+                  </button>
+                </div>
+
+                {portalError && (
+                  <div className="px-5 py-3">
+                    <p className="text-xs text-red-400">{portalError}</p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
 
