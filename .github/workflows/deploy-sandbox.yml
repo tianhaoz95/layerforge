@@ -24,12 +24,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create Artifact Registry repository (idempotent)
+      - name: Ensure Artifact Registry repository exists
         run: |
-          gcloud artifacts repositories create layerforge \
+          gcloud artifacts repositories describe layerforge \
+            --location=us-central1 --quiet \
+          || gcloud artifacts repositories create layerforge \
             --repository-format=docker \
             --location=us-central1 \
-            --quiet 2>/dev/null || true
+            --quiet
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
@@ -45,6 +47,18 @@ jobs:
           tags: us-central1-docker.pkg.dev/layerforge-platform/layerforge/sandbox:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Delete old image digests
+        run: |
+          OLD=$(gcloud artifacts docker images list \
+            us-central1-docker.pkg.dev/layerforge-platform/layerforge/sandbox \
+            --include-tags --sort-by="~createTime" \
+            --format="value(digest)" | tail -n +2)
+          for digest in $OLD; do
+            gcloud artifacts docker images delete \
+              "us-central1-docker.pkg.dev/layerforge-platform/layerforge/sandbox@$digest" \
+              --delete-tags --quiet && echo "Deleted $digest" || true
+          done
 
       - name: Deploy to Cloud Run
         id: deploy
