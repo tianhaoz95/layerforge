@@ -42,7 +42,6 @@ const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const stripe_1 = __importDefault(require("stripe"));
 const stripeSecretKey = (0, params_1.defineSecret)('STRIPE_SECRET_KEY');
-// Normalises Stripe timestamps (ISO string in v2026 API, Unix int in older versions).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toTimestamp(value) {
     if (!value)
@@ -57,39 +56,69 @@ exports.syncCheckoutSession = (0, https_1.onCall)({ secrets: [stripeSecretKey], 
     const { sessionId } = request.data;
     if (!sessionId)
         throw new https_1.HttpsError('invalid-argument', 'sessionId is required.');
-    const stripe = new stripe_1.default(stripeSecretKey.value(), { apiVersion: '2026-05-27.dahlia' });
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // defineSecret.value() works in production; fall back to process.env for the
+    // Functions emulator which sometimes doesn't inject secrets the same way.
+    const rawKey = stripeSecretKey.value() || process.env['STRIPE_SECRET_KEY'] || '';
+    if (!rawKey) {
+        throw new https_1.HttpsError('internal', 'Stripe secret key is not configured.');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let stripe;
+    try {
+        stripe = new stripe_1.default(rawKey, { apiVersion: '2026-05-27.dahlia' });
+    }
+    catch (err) {
+        console.error('Failed to initialise Stripe:', err);
+        throw new https_1.HttpsError('internal', 'Failed to initialise Stripe client.');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let session;
+    try {
+        session = await stripe.checkout.sessions.retrieve(sessionId);
+    }
+    catch (err) {
+        console.error('stripe.checkout.sessions.retrieve failed:', err);
+        throw new https_1.HttpsError('not-found', `Could not retrieve checkout session: ${err instanceof Error ? err.message : String(err)}`);
+    }
     // Verify ownership — prevents one user syncing another user's session.
     if (session.client_reference_id !== request.auth.uid) {
+        console.error(`UID mismatch: session.client_reference_id=${session.client_reference_id} auth.uid=${request.auth.uid}`);
         throw new https_1.HttpsError('permission-denied', 'Session does not belong to this user.');
     }
     const uid = request.auth.uid;
     const db = admin.firestore();
-    // Ensure customer → UID reverse map exists (mirrors what the webhook does).
-    const customerId = typeof session.customer === 'string'
-        ? session.customer
-        : session.customer?.id;
-    if (customerId) {
-        await db.collection('stripeCustomers').doc(customerId).set({ uid }, { merge: true });
-        await db.collection('users').doc(uid).set({ stripeCustomerId: customerId }, { merge: true });
+    try {
+        const customerId = typeof session.customer === 'string'
+            ? session.customer
+            : session.customer?.id;
+        if (customerId) {
+            await db.collection('stripeCustomers').doc(customerId).set({ uid }, { merge: true });
+            await db.collection('users').doc(uid).set({ stripeCustomerId: customerId }, { merge: true });
+        }
+        const subId = typeof session.subscription === 'string'
+            ? session.subscription
+            : session.subscription?.id;
+        if (subId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sub = await stripe.subscriptions.retrieve(subId);
+            await db.collection('users').doc(uid).set({
+                subscription: {
+                    id: sub['id'],
+                    status: sub['status'],
+                    priceId: sub['items']?.data?.[0]?.price?.id ?? null,
+                    currentPeriodEnd: toTimestamp(sub['current_period_end']),
+                    cancelAtPeriodEnd: sub['cancel_at_period_end'],
+                    trialEnd: toTimestamp(sub['trial_end']),
+                },
+            }, { merge: true });
+        }
+        else {
+            console.warn('No subscription on session yet — webhook will catch up shortly.');
+        }
     }
-    // Fetch and sync subscription.
-    const subId = typeof session.subscription === 'string'
-        ? session.subscription
-        : session.subscription?.id;
-    if (subId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sub = await stripe.subscriptions.retrieve(subId);
-        await db.collection('users').doc(uid).set({
-            subscription: {
-                id: sub['id'],
-                status: sub['status'],
-                priceId: sub['items']?.data?.[0]?.price?.id ?? null,
-                currentPeriodEnd: toTimestamp(sub['current_period_end']),
-                cancelAtPeriodEnd: sub['cancel_at_period_end'],
-                trialEnd: toTimestamp(sub['trial_end']),
-            },
-        }, { merge: true });
+    catch (err) {
+        console.error('Firestore write or subscription fetch failed:', err);
+        throw new https_1.HttpsError('internal', `Sync failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     return { synced: true };
 });

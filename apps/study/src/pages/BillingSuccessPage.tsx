@@ -10,29 +10,35 @@ const syncCheckoutSession = httpsCallable<{ sessionId: string }, { synced: boole
 
 export function BillingSuccessPage() {
   const { subscription } = useSubscription()
-  const [syncError, setSyncError] = useState('')
+  const [syncFailed, setSyncFailed] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
   const synced = useRef(false)
 
   const sessionId = new URLSearchParams(window.location.search).get('session_id')
 
-  // Call the sync function exactly once. Don't gate it on `subscription` state —
-  // just fire and forget; the spinner stays up until `useSubscription` confirms.
   useEffect(() => {
     if (synced.current || !sessionId) return
     synced.current = true
-
     syncCheckoutSession({ sessionId }).catch((err: unknown) => {
       console.error('syncCheckoutSession failed:', err)
-      setSyncError(
-        "Account setup is taking a moment. If this screen doesn't change, wait a few seconds and refresh.",
-      )
+      setSyncFailed(true)
     })
   }, [sessionId])
 
-  // Gate the "Start building" button on Firestore confirming the subscription,
-  // not on the CF call resolving — those are two different things.
-  const isReady =
+  // Fallback: if subscription hasn't appeared in Firestore after 15 s, unblock the
+  // button so the user isn't stuck. The webhook will catch up in production.
+  useEffect(() => {
+    const t = window.setTimeout(() => setTimedOut(true), 15_000)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  const isSubscribed =
     subscription?.status === 'trialing' || subscription?.status === 'active'
+
+  // Show the button once Firestore confirms, or if sync errored, or if we timed out.
+  const isReady = isSubscribed || syncFailed || timedOut
+
+  const showDelayNote = isReady && !isSubscribed
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center px-6">
@@ -47,7 +53,6 @@ export function BillingSuccessPage() {
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
               </div>
               <p className="text-gray-400 text-sm">Setting up your account…</p>
-              {syncError && <p className="text-xs text-yellow-500">{syncError}</p>}
             </>
           ) : (
             <>
@@ -56,6 +61,11 @@ export function BillingSuccessPage() {
               <p className="text-gray-400 text-sm">
                 Your 7-day free trial has started. Your card won't be charged until the trial ends.
               </p>
+              {showDelayNote && (
+                <p className="text-xs text-yellow-500">
+                  Account setup is still processing — if the dashboard doesn't load, wait a few seconds and try again.
+                </p>
+              )}
               <a
                 href="/"
                 className="mt-2 inline-block w-full rounded-lg bg-cyan-500 py-3 text-sm font-semibold text-gray-950 hover:bg-cyan-400 transition-colors"
