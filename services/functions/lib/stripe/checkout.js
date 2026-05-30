@@ -92,6 +92,7 @@ exports.createCheckoutSession = (0, https_1.onCall)({ secrets: [stripeSecretKey]
             trial_period_days: 7,
             trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
         },
+        allow_promotion_codes: true,
         payment_method_collection: 'always',
         success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: cancelUrl,
