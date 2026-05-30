@@ -39,6 +39,19 @@ if ! python3 -c "import numpy" &>/dev/null; then
   warn "  Fix: pip install numpy"
 fi
 
+# ── Stripe dev key check ──────────────────────────────────────────────────────
+
+FUNCTIONS_ENV="$REPO_ROOT/services/functions/.env.local"
+if [ ! -f "$FUNCTIONS_ENV" ]; then
+  warn "services/functions/.env.local not found."
+  warn "  Stripe billing will not work locally. Create the file:"
+  warn "    cp services/functions/.env.example services/functions/.env.local"
+  warn "  Then fill in your Stripe TEST keys."
+elif ! grep -q "^STRIPE_SECRET_KEY=sk_test_" "$FUNCTIONS_ENV"; then
+  warn "STRIPE_SECRET_KEY in services/functions/.env.local does not look like a test key."
+  warn "  Make sure it starts with sk_test_ for local development."
+fi
+
 # ── Install dependencies if needed ───────────────────────────────────────────
 
 if [ ! -d "$REPO_ROOT/node_modules" ]; then
@@ -51,6 +64,12 @@ if [ ! -x "$FIREBASE" ]; then
   warn "firebase-tools not found in node_modules — running pnpm install..."
   pnpm --dir "$REPO_ROOT" install
 fi
+
+# ── Build Cloud Functions (required by Functions emulator) ────────────────────
+
+log "Building Cloud Functions..."
+pnpm --filter @layerforge/functions build --silent 2>&1 | grep -v "^$" || true
+ok "Cloud Functions built"
 
 # ── Graceful shutdown ─────────────────────────────────────────────────────────
 
@@ -103,8 +122,10 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 # ── Launch Firebase emulators ─────────────────────────────────────────────────
+# Includes the Functions emulator so Stripe Cloud Functions run against
+# test keys from services/functions/.env.local (never the live secret).
 
-log "Starting Firebase emulators (Auth :9099, Firestore :8080, UI :4000)..."
+log "Starting Firebase emulators (Auth :9099, Firestore :8080, Functions :5001, UI :4000)..."
 
 cd "$REPO_ROOT"
 
@@ -115,7 +136,7 @@ if [ -d ".firebase/emulator-data" ]; then
 fi
 
 # shellcheck disable=SC2086
-"$FIREBASE" emulators:start --only auth,firestore --project demo-layerforge \
+"$FIREBASE" emulators:start --only auth,firestore,functions --project demo-layerforge \
   $EMULATOR_EXTRA_ARGS &
 EMULATOR_PID=$!
 
@@ -135,15 +156,23 @@ if [ "$EMULATOR_READY" = "0" ]; then
   exit 1
 fi
 
-ok "Firebase emulators ready"
+# Wait for Functions emulator to be ready (up to ~12 s)
+for _ in $(seq 1 40); do
+  if (echo > /dev/tcp/localhost/5001) &>/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.3
+done
+
+ok "Firebase emulators ready (Stripe calls → test keys via services/functions/.env.local)"
 
 # ── Launch dev servers ────────────────────────────────────────────────────────
 
 echo ""
-echo -e "  ${CYAN}home${RESET}     →  http://localhost:5174"
-echo -e "  ${CYAN}preview${RESET}  →  http://localhost:5175"
-echo -e "  ${CYAN}study${RESET}    →  http://localhost:5173"
-echo -e "  ${CYAN}sandbox${RESET}  →  http://localhost:3001"
+echo -e "  ${CYAN}study${RESET}        →  http://localhost:5173  (test Stripe: price IDs from apps/study/.env.local)"
+echo -e "  ${CYAN}home${RESET}         →  http://localhost:5174"
+echo -e "  ${CYAN}preview${RESET}      →  http://localhost:5175"
+echo -e "  ${CYAN}sandbox${RESET}      →  http://localhost:3001"
 echo -e "  ${CYAN}emulator UI${RESET}  →  http://localhost:4000"
 echo ""
 echo -e "  Press ${YELLOW}Ctrl+C${RESET} to stop all services."
