@@ -39,7 +39,9 @@ if ! python3 -c "import numpy" &>/dev/null; then
   warn "  Fix: pip install numpy"
 fi
 
-# ── Stripe dev key check ──────────────────────────────────────────────────────
+# ── Stripe dev keys — source into environment for the Functions emulator ─────
+# Firebase Functions emulator reads secrets from process.env, not from
+# Firebase Secret Manager. Exporting here makes them available to the emulator.
 
 FUNCTIONS_ENV="$REPO_ROOT/services/functions/.env.local"
 if [ ! -f "$FUNCTIONS_ENV" ]; then
@@ -47,9 +49,17 @@ if [ ! -f "$FUNCTIONS_ENV" ]; then
   warn "  Stripe billing will not work locally. Create the file:"
   warn "    cp services/functions/.env.example services/functions/.env.local"
   warn "  Then fill in your Stripe TEST keys."
-elif ! grep -q "^STRIPE_SECRET_KEY=sk_test_" "$FUNCTIONS_ENV"; then
-  warn "STRIPE_SECRET_KEY in services/functions/.env.local does not look like a test key."
-  warn "  Make sure it starts with sk_test_ for local development."
+else
+  if ! grep -q "^STRIPE_SECRET_KEY=sk_test_" "$FUNCTIONS_ENV"; then
+    warn "STRIPE_SECRET_KEY in services/functions/.env.local does not look like a test key."
+    warn "  Make sure it starts with sk_test_ for local development."
+  fi
+  # Export all KEY=VALUE pairs so the emulator inherits them.
+  set -a
+  # shellcheck disable=SC1090
+  source "$FUNCTIONS_ENV"
+  set +a
+  log "Stripe test keys loaded from services/functions/.env.local"
 fi
 
 # ── Install dependencies if needed ───────────────────────────────────────────
