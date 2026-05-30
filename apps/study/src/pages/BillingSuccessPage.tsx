@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../lib/firebase'
+import { useAuth } from '../contexts/AuthContext'
 import { useSubscription } from '../hooks/useSubscription'
 
 const syncCheckoutSession = httpsCallable<{ sessionId: string }, { synced: boolean }>(
@@ -10,34 +11,45 @@ const syncCheckoutSession = httpsCallable<{ sessionId: string }, { synced: boole
 )
 
 export function BillingSuccessPage() {
+  const { user } = useAuth()
   const { subscription, loading: subLoading } = useSubscription()
+  const navigate = useNavigate()
   const [syncDone, setSyncDone] = useState(false)
   const [syncError, setSyncError] = useState('')
   const synced = useRef(false)
 
   const sessionId = new URLSearchParams(window.location.search).get('session_id')
 
-  // No session_id means the user navigated here directly (back button, stale bookmark).
-  // Redirect them to an appropriate page once subscription state is known.
+  // No session_id → stale URL (back button, bookmark). Redirect once auth state is known.
   if (!sessionId && !subLoading) {
     const isActive = subscription?.status === 'trialing' || subscription?.status === 'active'
     return <Navigate to={isActive ? '/' : '/billing'} replace />
   }
 
   useEffect(() => {
-    if (synced.current || !sessionId) return
+    // Wait for user to be confirmed before calling the function —
+    // the auth token may still be refreshing right after sign-in.
+    if (synced.current || !sessionId || !user) return
     synced.current = true
+
     syncCheckoutSession({ sessionId })
       .then(() => setSyncDone(true))
       .catch((err: unknown) => {
         console.error('syncCheckoutSession failed:', err)
+        const code = (err as { code?: string })?.code
+        // permission-denied means the session_id belongs to a different user
+        // (stale URL from a previous checkout). Redirect to billing cleanly.
+        if (code === 'functions/permission-denied') {
+          navigate('/billing', { replace: true })
+          return
+        }
         setSyncError(
           (err as { message?: string })?.message ??
           'Could not set up your account automatically.',
         )
         setSyncDone(true)
       })
-  }, [sessionId])
+  }, [sessionId, user, navigate])
 
   const isSubscribed =
     subscription?.status === 'trialing' || subscription?.status === 'active'
