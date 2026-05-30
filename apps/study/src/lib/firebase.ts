@@ -22,18 +22,25 @@ export const db = getFirestore(app)
 export const googleProvider = new GoogleAuthProvider()
 export const functions = getFunctions(app)
 
-// In dev, App Check runs in debug mode — a token is logged to the console on first run.
-// Register that token once in Firebase Console → App Check → Apps → Manage debug tokens.
-if (import.meta.env.DEV) {
-  (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = true
-}
+// App Check requires a real Firebase project. When VITE_FIREBASE_API_KEY is absent
+// (emulator / demo-layerforge mode) there is no backend to exchange the debug token
+// with, so skip initialisation entirely — the emulator doesn't enforce App Check.
+const hasRealFirebaseConfig = !!import.meta.env.VITE_FIREBASE_API_KEY
 
-initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider(
-    import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? '6LfV6gItAAAAAJJ6yjVIJYyo1aQ4Wa8foQqWSVNQ',
-  ),
-  isTokenAutoRefreshEnabled: true,
-})
+if (hasRealFirebaseConfig) {
+  // In dev with a real project, log the debug token once and register it in
+  // Firebase Console → App Check → Apps → Manage debug tokens.
+  if (import.meta.env.DEV) {
+    (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = true
+  }
+
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(
+      import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? '6LfV6gItAAAAAJJ6yjVIJYyo1aQ4Wa8foQqWSVNQ',
+    ),
+    isTokenAutoRefreshEnabled: true,
+  })
+}
 
 if (import.meta.env.DEV) {
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
