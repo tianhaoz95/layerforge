@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
+import { FirebaseError } from 'firebase/app'
 import { functions } from '../lib/firebase'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAuth } from '../contexts/AuthContext'
@@ -16,8 +18,17 @@ const createPortalSession   = httpsCallable<unknown, PortalResult>(functions, 'c
 export function BillingPage() {
   const { user } = useAuth()
   const { subscription, loading } = useSubscription()
+  const navigate = useNavigate()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
+
+  // If the user already has a live subscription and somehow lands here, send them home.
+  const isLiveEarly = !loading && subscription != null &&
+    ['active', 'trialing', 'past_due', 'incomplete'].includes(subscription.status)
+
+  useEffect(() => {
+    if (isLiveEarly) navigate('/', { replace: true })
+  }, [isLiveEarly, navigate])
 
   async function startCheckout(priceId: string) {
     setBusy(priceId)
@@ -31,6 +42,11 @@ export function BillingPage() {
       })
       window.location.href = data.url
     } catch (err) {
+      // Server confirmed the user already has a subscription — just go home.
+      if (err instanceof FirebaseError && err.code === 'functions/already-exists') {
+        navigate('/', { replace: true })
+        return
+      }
       setError(err instanceof Error ? err.message : 'Something went wrong.')
       setBusy(null)
     }
@@ -48,9 +64,7 @@ export function BillingPage() {
     }
   }
 
-  // A subscription is "live" if it's in any state that Stripe considers billable/active.
-  // We block new checkout sessions for all of these on the server too.
-  const isLive = subscription != null && ['active', 'trialing', 'past_due', 'incomplete'].includes(subscription.status)
+  const isLive = isLiveEarly
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 px-6 py-16">
