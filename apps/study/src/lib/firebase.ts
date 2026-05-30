@@ -16,16 +16,18 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
-export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null
+
+// Analytics and App Check require a real Firebase project.
+// Skip both when running against the local emulator (no VITE_FIREBASE_API_KEY set).
+const hasRealFirebaseConfig = !!import.meta.env.VITE_FIREBASE_API_KEY
+
+export const analytics = hasRealFirebaseConfig && typeof window !== 'undefined'
+  ? getAnalytics(app)
+  : null
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const googleProvider = new GoogleAuthProvider()
 export const functions = getFunctions(app)
-
-// App Check requires a real Firebase project. When VITE_FIREBASE_API_KEY is absent
-// (emulator / demo-layerforge mode) there is no backend to exchange the debug token
-// with, so skip initialisation entirely — the emulator doesn't enforce App Check.
-const hasRealFirebaseConfig = !!import.meta.env.VITE_FIREBASE_API_KEY
 
 if (hasRealFirebaseConfig) {
   // In dev with a real project, log the debug token once and register it in

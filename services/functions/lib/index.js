@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createPortalSession = exports.stripeWebhook = exports.createCheckoutSession = exports.runCode = void 0;
+exports.createPortalSession = exports.stripeWebhook = exports.syncCheckoutSession = exports.createCheckoutSession = exports.runCode = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -94,6 +94,8 @@ exports.runCode = functions.https.onCall(async (request) => {
 });
 var checkout_1 = require("./stripe/checkout");
 Object.defineProperty(exports, "createCheckoutSession", { enumerable: true, get: function () { return checkout_1.createCheckoutSession; } });
+var sync_1 = require("./stripe/sync");
+Object.defineProperty(exports, "syncCheckoutSession", { enumerable: true, get: function () { return sync_1.syncCheckoutSession; } });
 var webhook_1 = require("./stripe/webhook");
 Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return webhook_1.stripeWebhook; } });
 var portal_1 = require("./stripe/portal");

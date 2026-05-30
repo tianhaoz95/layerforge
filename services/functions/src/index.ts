@@ -100,5 +100,6 @@ export const runCode = functions.https.onCall(async (request) => {
 });
 
 export { createCheckoutSession } from './stripe/checkout';
+export { syncCheckoutSession } from './stripe/sync';
 export { stripeWebhook } from './stripe/webhook';
 export { createPortalSession } from './stripe/portal';
