@@ -40,6 +40,7 @@ exports.syncCheckoutSession = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const stripe_1 = __importDefault(require("stripe"));
 const stripeSecretKey = (0, params_1.defineSecret)('STRIPE_SECRET_KEY');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,7 +48,7 @@ function toTimestamp(value) {
     if (!value)
         return null;
     const ms = typeof value === 'string' ? new Date(value).getTime() : value * 1000;
-    return Number.isFinite(ms) ? admin.firestore.Timestamp.fromMillis(ms) : null;
+    return Number.isFinite(ms) ? firestore_1.Timestamp.fromMillis(ms) : null;
 }
 exports.syncCheckoutSession = (0, https_1.onCall)({ secrets: [stripeSecretKey], cors: true }, async (request) => {
     if (!request.auth) {

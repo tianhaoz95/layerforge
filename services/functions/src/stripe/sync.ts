@@ -1,15 +1,16 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 
 const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toTimestamp(value: any): admin.firestore.Timestamp | null {
+function toTimestamp(value: any): Timestamp | null {
   if (!value) return null;
   const ms = typeof value === 'string' ? new Date(value).getTime() : (value as number) * 1000;
-  return Number.isFinite(ms) ? admin.firestore.Timestamp.fromMillis(ms) : null;
+  return Number.isFinite(ms) ? Timestamp.fromMillis(ms) : null;
 }
 
 export const syncCheckoutSession = onCall(
