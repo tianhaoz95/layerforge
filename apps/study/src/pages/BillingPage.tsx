@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
-import { FirebaseError } from 'firebase/app'
 import { functions } from '../lib/firebase'
 import { useSubscription } from '../hooks/useSubscription'
 import { useAuth } from '../contexts/AuthContext'
@@ -43,7 +42,7 @@ export function BillingPage() {
       window.location.href = data.url
     } catch (err) {
       // Server confirmed the user already has a subscription — just go home.
-      if (err instanceof FirebaseError && err.code === 'functions/already-exists') {
+      if ((err as { code?: string })?.code === 'functions/already-exists') {
         navigate('/', { replace: true })
         return
       }
